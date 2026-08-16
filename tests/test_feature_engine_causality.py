@@ -48,7 +48,7 @@ def test_1d_feature_only_appears_after_day_close():
     engine = FeatureEngine()
     data = _frame("2026-01-01 00:00:00", 1441)
 
-    result = engine._merge_timeframe(data, "1d", "trend_1d")
+    result = engine._merge_timeframe(data, "1D", "trend_1d")
     by_time = result.set_index("timestamp")
 
     assert pd.isna(by_time.loc[pd.Timestamp("2026-01-01 23:59:00"), "trend_1d"])
