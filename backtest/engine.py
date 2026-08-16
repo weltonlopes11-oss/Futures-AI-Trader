@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from filters.institutional_filter_engine import InstitutionalFilterEngine
 from market.market_context_engine import MarketContextEngine
 from market.feature_engine import FeatureEngine
 from backtest.historical_loader import HistoricalDataLoader
+from backtest.fixed_historical_loader import FixedHistoricalDataLoader
 
 from decision.trade_decision_engine import TradeDecisionEngine
 from decision.signal_score import SignalScoreCalculator
@@ -28,20 +31,52 @@ class BacktestEngine:
     Apenas conecta os componentes da arquitetura.
     """
 
+    VALID_DATA_SOURCES = {
+        "LIVE",
+        "FIXED",
+    }
+
     def __init__(
         self,
         filters: list,
         risk_validators: list | None = None,
         symbol: str = "BTCUSDT",
         interval: str = "1m",
+        data_source: str = "LIVE",
+        fixed_data_path: str | Path | None = None,
     ):
 
         self.symbol = symbol
-
-        self.loader = HistoricalDataLoader(
-            symbol=symbol,
-            interval=interval,
+        self.interval = interval
+        self.data_source = data_source.upper()
+        self.fixed_data_path = (
+            Path(fixed_data_path)
+            if fixed_data_path is not None
+            else None
         )
+
+        if self.data_source not in self.VALID_DATA_SOURCES:
+            raise ValueError(
+                "Fonte de dados inválida. Use LIVE ou FIXED."
+            )
+
+        if self.data_source == "FIXED":
+
+            if self.fixed_data_path is None:
+                raise ValueError(
+                    "fixed_data_path é obrigatório quando data_source=FIXED."
+                )
+
+            self.loader = FixedHistoricalDataLoader(
+                file_path=self.fixed_data_path,
+            )
+
+        else:
+
+            self.loader = HistoricalDataLoader(
+                symbol=symbol,
+                interval=interval,
+            )
 
         self.feature_engine = FeatureEngine()
 
@@ -71,6 +106,10 @@ class BacktestEngine:
 
         self.telemetry_storage = TelemetryStorage()
 
+        self.history_start = None
+        self.history_end = None
+        self.history_size = 0
+
     def run(
         self,
         limit: int = 1000,
@@ -81,18 +120,22 @@ class BacktestEngine:
 
         if history is None:
             raise RuntimeError(
-                "Histórico vazio: HistoricalDataLoader não retornou candles."
+                "Histórico vazio: loader não retornou candles."
             )
 
         if not isinstance(history, pd.DataFrame):
             raise TypeError(
-                "Histórico inválido: HistoricalDataLoader deve retornar um DataFrame."
+                "Histórico inválido: loader deve retornar um DataFrame."
             )
 
         if history.empty:
             raise RuntimeError(
-                "Histórico vazio: HistoricalDataLoader não retornou candles."
+                "Histórico vazio: loader não retornou candles."
             )
+
+        self.history_size = len(history)
+        self.history_start = history.iloc[0]["timestamp"]
+        self.history_end = history.iloc[-1]["timestamp"]
 
         history = self.feature_engine.enrich(history)
 
