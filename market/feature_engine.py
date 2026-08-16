@@ -12,6 +12,10 @@ class FeatureEngine:
         - trend_1h
         - trend_4h
         - trend_1d
+
+    Regra de causalidade:
+        candles de timeframes superiores só ficam disponíveis
+        no instante em que o período agregado já foi encerrado.
     """
 
     EMA_CONFIG = {
@@ -22,10 +26,13 @@ class FeatureEngine:
     }
 
     def enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Recebe candles de 1 minuto e devolve o mesmo DataFrame
+        enriquecido com tendências de múltiplos timeframes.
+        """
 
         self._validate_dataframe(df)
 
-        # elimina qualquer índice antigo para evitar ambiguidades
         result = df.copy().reset_index(drop=True)
 
         result = self._merge_timeframe(
@@ -52,6 +59,12 @@ class FeatureEngine:
 
     def _validate_dataframe(self, df: pd.DataFrame):
 
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("FeatureEngine espera um DataFrame.")
+
+        if df.empty:
+            raise ValueError("DataFrame vazio.")
+
         required = [
             "timestamp",
             "open",
@@ -77,15 +90,26 @@ class FeatureEngine:
         column_name: str,
     ) -> pd.DataFrame:
 
-        # garante que não exista um índice chamado timestamp
+        if timeframe not in self.EMA_CONFIG:
+            raise ValueError(
+                f"Timeframe não configurado: {timeframe}"
+            )
+
         base = df.copy().reset_index(drop=True)
-
         base["timestamp"] = pd.to_datetime(base["timestamp"])
-
+        base = base.sort_values("timestamp")
         base = base.set_index("timestamp")
 
+        # closed="left" cria intervalos [inicio, fim).
+        # label="right" rotula a vela no primeiro instante em que
+        # todos os dados daquele período já estão disponíveis.
+        # Ex.: a vela 1H [10:00, 11:00) recebe timestamp 11:00.
         candles = (
-            base.resample(timeframe)
+            base.resample(
+                timeframe,
+                closed="left",
+                label="right",
+            )
             .agg(
                 {
                     "open": "first",
@@ -98,11 +122,6 @@ class FeatureEngine:
             .dropna()
         )
 
-        if timeframe not in self.EMA_CONFIG:
-            raise ValueError(
-                f"Timeframe não configurado: {timeframe}"
-            )
-
         fast_period, slow_period = self.EMA_CONFIG[timeframe]
 
         candles[column_name] = self._calculate_trend(
@@ -111,19 +130,22 @@ class FeatureEngine:
             slow_period,
         )
 
-        trend = candles[[column_name]]
+        trend = candles[[column_name]].sort_index()
 
-        # evita ambiguidade entre índice e coluna
         left = df.copy().reset_index(drop=True)
         left["timestamp"] = pd.to_datetime(left["timestamp"])
         left = left.sort_values("timestamp")
 
+        # backward garante que cada candle-base só veja o último
+        # timeframe superior cujo timestamp de disponibilidade seja
+        # menor ou igual ao timestamp atual.
         merged = pd.merge_asof(
             left,
-            trend.sort_index(),
+            trend,
             left_on="timestamp",
             right_index=True,
             direction="backward",
+            allow_exact_matches=True,
         )
 
         return merged
