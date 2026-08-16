@@ -58,5 +58,13 @@ class MarketContextEngine:
                 "trend_4h": last.get("trend_4h"),
                 "trend_1h": last.get("trend_1h"),
 
+                # Open Interest histórico alinhado ao candle atual.
+                # Nesta fase é apenas telemetria/contexto; não altera filtros.
+                "open_interest": last.get("open_interest"),
+                "open_interest_value": last.get("open_interest_value"),
+                "open_interest_change_pct": last.get(
+                    "open_interest_change_pct"
+                ),
+
             },
         )

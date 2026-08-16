@@ -62,6 +62,9 @@ class FixedHistoricalDataLoader:
             "quote_volume",
             "taker_buy_base",
             "taker_buy_quote",
+            "open_interest",
+            "open_interest_value",
+            "open_interest_change_pct",
         ]
 
         for column in numeric_columns:

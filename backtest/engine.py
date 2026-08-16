@@ -96,10 +96,6 @@ class BacktestEngine:
             validators=risk_validators,
         )
 
-        # ==================================================
-        # Telemetria
-        # ==================================================
-
         self.telemetry_engine = TelemetryEngine(
             symbol=symbol,
         )
@@ -109,6 +105,11 @@ class BacktestEngine:
         self.history_start = None
         self.history_end = None
         self.history_size = 0
+
+        self.open_interest_available = False
+        self.open_interest_coverage = 0.0
+        self.open_interest_first = None
+        self.open_interest_last = None
 
     def run(
         self,
@@ -136,6 +137,16 @@ class BacktestEngine:
         self.history_size = len(history)
         self.history_start = history.iloc[0]["timestamp"]
         self.history_end = history.iloc[-1]["timestamp"]
+
+        if "open_interest" in history.columns:
+            valid_oi = history["open_interest"].dropna()
+            self.open_interest_available = not valid_oi.empty
+            self.open_interest_coverage = (
+                history["open_interest"].notna().mean() * 100.0
+            )
+            if not valid_oi.empty:
+                self.open_interest_first = float(valid_oi.iloc[0])
+                self.open_interest_last = float(valid_oi.iloc[-1])
 
         history = self.feature_engine.enrich(history)
 
@@ -185,10 +196,6 @@ class BacktestEngine:
                         "risk": risk,
                     }
                 )
-
-                # ==========================================
-                # TELEMETRIA
-                # ==========================================
 
                 record = self.telemetry_engine.capture(
                     timestamp=history.iloc[index]["timestamp"],
