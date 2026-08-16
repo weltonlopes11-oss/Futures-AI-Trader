@@ -12,6 +12,19 @@ class OpenInterestEnricher:
         "sumOpenInterestValue",
     }
 
+    @staticmethod
+    def _normalize_timestamp(series: pd.Series) -> pd.Series:
+        """
+        Normaliza timestamps para a mesma resolução interna do pandas.
+
+        merge_asof exige que as duas chaves temporais tenham exatamente
+        o mesmo dtype. CSVs podem chegar como datetime64[us], enquanto
+        timestamps convertidos a partir da Binance podem chegar como
+        datetime64[ms]. Padronizamos ambos para datetime64[ns].
+        """
+
+        return pd.to_datetime(series).astype("datetime64[ns]")
+
     def enrich(
         self,
         candles: pd.DataFrame,
@@ -37,11 +50,11 @@ class OpenInterestEnricher:
             )
 
         left = candles.copy().reset_index(drop=True)
-        left["timestamp"] = pd.to_datetime(left["timestamp"])
+        left["timestamp"] = self._normalize_timestamp(left["timestamp"])
         left = left.sort_values("timestamp")
 
         right = open_interest.copy().reset_index(drop=True)
-        right["timestamp"] = pd.to_datetime(right["timestamp"])
+        right["timestamp"] = self._normalize_timestamp(right["timestamp"])
         right["open_interest"] = pd.to_numeric(
             right["sumOpenInterest"],
             errors="raise",
@@ -97,6 +110,6 @@ class OpenInterestEnricher:
         df["timestamp"] = pd.to_datetime(
             pd.to_numeric(df["timestamp"], errors="raise"),
             unit="ms",
-        )
+        ).astype("datetime64[ns]")
 
         return df
