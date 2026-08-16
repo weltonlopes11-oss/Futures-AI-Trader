@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import traceback
+from pathlib import Path
 
 from backtest.engine import BacktestEngine
 from backtest.metrics import BacktestMetrics
@@ -12,6 +14,39 @@ from filters.trend_filter import TrendFilter
 from filters.volatility_filter import VolatilityFilter
 
 from telemetry.telemetry_report import TelemetryReport
+
+
+# ==========================================================
+# Configuração do backtest
+# ==========================================================
+
+BACKTEST_DATA_SOURCE = os.getenv(
+    "BACKTEST_DATA_SOURCE",
+    "LIVE",
+).upper()
+
+BACKTEST_FIXED_DATA_PATH = os.getenv(
+    "BACKTEST_FIXED_DATA_PATH",
+    str(Path("data") / "ETHUSDT_1m_baseline.csv"),
+)
+
+BACKTEST_SYMBOL = os.getenv(
+    "BACKTEST_SYMBOL",
+    "ETHUSDT",
+)
+
+BACKTEST_INTERVAL = os.getenv(
+    "BACKTEST_INTERVAL",
+    "1m",
+)
+
+BACKTEST_LIMIT = int(
+    os.getenv("BACKTEST_LIMIT", "20000")
+)
+
+BACKTEST_WARMUP = int(
+    os.getenv("BACKTEST_WARMUP", "200")
+)
 
 
 # ==========================================================
@@ -118,6 +153,10 @@ def main():
     filters = build_filters()
 
     print(f"Filtros carregados: {len(filters)}")
+    print(f"Fonte de dados.......: {BACKTEST_DATA_SOURCE}")
+
+    if BACKTEST_DATA_SOURCE == "FIXED":
+        print(f"Dataset fixo.........: {BACKTEST_FIXED_DATA_PATH}")
 
     engine = BacktestEngine(
 
@@ -125,9 +164,17 @@ def main():
 
         risk_validators=[],
 
-        symbol="ETHUSDT",
+        symbol=BACKTEST_SYMBOL,
 
-        interval="1m",
+        interval=BACKTEST_INTERVAL,
+
+        data_source=BACKTEST_DATA_SOURCE,
+
+        fixed_data_path=(
+            BACKTEST_FIXED_DATA_PATH
+            if BACKTEST_DATA_SOURCE == "FIXED"
+            else None
+        ),
 
     )
 
@@ -136,13 +183,18 @@ def main():
 
     trades = engine.run(
 
-        limit=20000,
+        limit=BACKTEST_LIMIT,
 
-        warmup=200,
+        warmup=BACKTEST_WARMUP,
 
     )
 
-    print(f"Candles processados: {len(trades)}")
+    print()
+    print("HISTÓRICO UTILIZADO")
+    print(f"Candles carregados....: {engine.history_size}")
+    print(f"Início................: {engine.history_start}")
+    print(f"Fim...................: {engine.history_end}")
+    print(f"Candles processados...: {len(trades)}")
 
     simulator = BacktestSimulator()
 
