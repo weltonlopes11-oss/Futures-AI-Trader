@@ -22,7 +22,7 @@ class FeatureEngine:
         "1m": (20, 50),
         "1h": (21, 55),
         "4h": (8, 34),
-        "1d": (5, 21),
+        "1D": (5, 21),
     }
 
     def enrich(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -49,7 +49,7 @@ class FeatureEngine:
 
         result = self._merge_timeframe(
             result,
-            timeframe="1d",
+            timeframe="1D",
             column_name="trend_1d",
         )
 
