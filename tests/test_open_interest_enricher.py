@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from backtest.open_interest_enricher import OpenInterestEnricher
 
@@ -70,7 +71,7 @@ def test_open_interest_change_is_calculated_on_observations_not_candles():
     assert by_time.loc[
         pd.Timestamp("2026-08-16 10:05:00"),
         "open_interest_change_pct",
-    ] == 10.0
+    ] == pytest.approx(10.0)
 
 
 def test_future_open_interest_does_not_leak_backwards():
