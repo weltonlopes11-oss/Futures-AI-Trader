@@ -1,0 +1,187 @@
+# =============================================================================
+# FUTURES-AI-TRADER
+# Institutional Filters Configuration
+# =============================================================================
+
+general:
+
+  # Score mínimo para permitir uma operação
+  minimum_score: 75
+
+  # Apenas setups A+, A ou B podem operar
+  allowed_grades:
+    - A+
+    - A
+    - B
+
+  # Score máximo possível
+  max_score: 100
+
+
+# =============================================================================
+# PESO DE CADA FILTRO NO INSTITUTIONAL SCORE
+# A soma deve ser 100
+# =============================================================================
+
+weights:
+
+  timeframe: 20
+
+  liquidity_window: 10
+
+  open_interest: 12
+
+  funding_rate: 8
+
+  cvd: 12
+
+  liquidity_sweep: 12
+
+  order_block: 10
+
+  fair_value_gap: 8
+
+  atr: 8
+
+
+# =============================================================================
+# TIMEFRAME FILTER
+# =============================================================================
+
+timeframe:
+
+  enabled: true
+
+  minimum_alignment: 2
+
+  require_daily_confirmation: true
+
+
+# =============================================================================
+# LIQUIDITY WINDOW FILTER
+# Horários em UTC
+# =============================================================================
+
+liquidity_window:
+
+  enabled: true
+
+  asian:
+    start: 0
+    end: 8
+
+  london:
+    start: 7
+    end: 16
+
+  new_york:
+    start: 13
+    end: 22
+
+  london_new_york_overlap:
+    start: 13
+    end: 16
+
+
+# =============================================================================
+# OPEN INTEREST
+# =============================================================================
+
+open_interest:
+
+  enabled: true
+
+  minimum_growth_percent: 2.0
+
+  maximum_drop_percent: -3.0
+
+
+# =============================================================================
+# FUNDING RATE
+# =============================================================================
+
+funding_rate:
+
+  enabled: true
+
+  maximum_positive: 0.010
+
+  minimum_negative: -0.010
+
+
+# =============================================================================
+# CVD
+# =============================================================================
+
+cvd:
+
+  enabled: true
+
+  minimum_confirmation_percent: 60
+
+
+# =============================================================================
+# LIQUIDITY SWEEP
+# =============================================================================
+
+liquidity_sweep:
+
+  enabled: true
+
+  lookback_candles: 30
+
+
+# =============================================================================
+# ORDER BLOCK
+# =============================================================================
+
+order_block:
+
+  enabled: true
+
+  minimum_strength: 70
+
+
+# =============================================================================
+# FAIR VALUE GAP
+# =============================================================================
+
+fair_value_gap:
+
+  enabled: true
+
+  minimum_gap_percent: 0.20
+
+
+# =============================================================================
+# ATR
+# =============================================================================
+
+atr:
+
+  enabled: true
+
+  period: 14
+
+  minimum_atr_percent: 0.40
+
+  maximum_atr_percent: 4.00
+
+
+# =============================================================================
+# MARKET CONTEXT ENGINE
+# =============================================================================
+
+market_context:
+
+  enabled: true
+
+  detect_trend: true
+
+  detect_range: true
+
+  detect_high_volatility: true
+
+  detect_low_volatility: true
+
+  detect_liquidation_events: true
