@@ -16,10 +16,6 @@ from filters.volatility_filter import VolatilityFilter
 from telemetry.telemetry_report import TelemetryReport
 
 
-# ==========================================================
-# Configuração do backtest
-# ==========================================================
-
 BACKTEST_DATA_SOURCE = os.getenv(
     "BACKTEST_DATA_SOURCE",
     "LIVE",
@@ -49,28 +45,15 @@ BACKTEST_WARMUP = int(
 )
 
 
-# ==========================================================
-# Registro oficial dos filtros institucionais
-# ==========================================================
-
 def build_filters():
 
     return [
-
         RegimeFilter(),
-
         TrendFilter(),
-
         VolatilityFilter(),
-
         TimeframeFilter(),
-
     ]
 
-
-# ==========================================================
-# Impressão do relatório principal
-# ==========================================================
 
 def print_report(metrics: BacktestMetrics):
 
@@ -138,10 +121,6 @@ def print_report(metrics: BacktestMetrics):
     print("=" * 70)
 
 
-# ==========================================================
-# Main
-# ==========================================================
-
 def main():
 
     print()
@@ -159,34 +138,24 @@ def main():
         print(f"Dataset fixo.........: {BACKTEST_FIXED_DATA_PATH}")
 
     engine = BacktestEngine(
-
         filters=filters,
-
         risk_validators=[],
-
         symbol=BACKTEST_SYMBOL,
-
         interval=BACKTEST_INTERVAL,
-
         data_source=BACKTEST_DATA_SOURCE,
-
         fixed_data_path=(
             BACKTEST_FIXED_DATA_PATH
             if BACKTEST_DATA_SOURCE == "FIXED"
             else None
         ),
-
     )
 
     print()
     print("Carregando histórico...")
 
     trades = engine.run(
-
         limit=BACKTEST_LIMIT,
-
         warmup=BACKTEST_WARMUP,
-
     )
 
     print()
@@ -196,6 +165,27 @@ def main():
     print(f"Fim...................: {engine.history_end}")
     print(f"Candles processados...: {len(trades)}")
 
+    print()
+    print("OPEN INTEREST")
+    print(
+        "Disponível............: "
+        f"{'SIM' if engine.open_interest_available else 'NÃO'}"
+    )
+
+    if engine.open_interest_available:
+        print(
+            f"Cobertura..............: "
+            f"{engine.open_interest_coverage:.2f}%"
+        )
+        print(
+            f"Primeiro OI............: "
+            f"{engine.open_interest_first}"
+        )
+        print(
+            f"Último OI..............: "
+            f"{engine.open_interest_last}"
+        )
+
     simulator = BacktestSimulator()
 
     simulation = simulator.simulate(trades)
@@ -204,12 +194,7 @@ def main():
 
     print_report(metrics)
 
-    # ======================================================
-    # TELEMETRIA
-    # ======================================================
-
     print()
-
     print("=" * 70)
     print("GERANDO TELEMETRIA...")
     print("=" * 70)
@@ -228,18 +213,12 @@ def main():
     )
 
 
-# ==========================================================
-# Entry Point
-# ==========================================================
-
 if __name__ == "__main__":
 
     try:
-
         main()
 
     except Exception:
-
         print()
         print("=" * 70)
         print("ERRO DURANTE O BACKTEST")
