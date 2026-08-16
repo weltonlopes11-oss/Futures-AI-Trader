@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pandas as pd
+
 from filters.institutional_filter_engine import InstitutionalFilterEngine
 from market.market_context_engine import MarketContextEngine
 from market.feature_engine import FeatureEngine
@@ -76,6 +78,21 @@ class BacktestEngine:
     ) -> list:
 
         history = self.loader.load(limit)
+
+        if history is None:
+            raise RuntimeError(
+                "Histórico vazio: HistoricalDataLoader não retornou candles."
+            )
+
+        if not isinstance(history, pd.DataFrame):
+            raise TypeError(
+                "Histórico inválido: HistoricalDataLoader deve retornar um DataFrame."
+            )
+
+        if history.empty:
+            raise RuntimeError(
+                "Histórico vazio: HistoricalDataLoader não retornou candles."
+            )
 
         history = self.feature_engine.enrich(history)
 
