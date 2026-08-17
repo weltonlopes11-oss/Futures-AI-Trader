@@ -54,6 +54,25 @@ def test_analyzer_uses_only_real_oi_observations():
     assert len(analyzer.observations) == 2
 
 
+def test_entry_uses_next_candle_open():
+    records = [
+        _record("2026-08-16 10:05:00", 110.0, 10.0),
+        _record("2026-08-16 10:10:00", 99.0, -10.0),
+    ]
+
+    candles = _candles()
+    analyzer = OIProfitAnalyzer(records, candles, horizons=(5,))
+    item = analyzer.observations[0]
+
+    expected = candles.loc[
+        candles["timestamp"] == pd.Timestamp("2026-08-16 10:06:00"),
+        "open",
+    ].iloc[0]
+
+    assert item.entry_timestamp == pd.Timestamp("2026-08-16 10:06:00")
+    assert item.entry_price == pytest.approx(expected)
+
+
 def test_horizons_calculate_future_return_mfe_and_mae():
     records = [
         _record("2026-08-16 10:05:00", 110.0, 10.0),
@@ -81,6 +100,27 @@ def test_short_directional_return_inverts_price_return():
 
     assert item.future_return_pct > 0
     assert item.directional_return_pct < 0
+
+
+def test_round_trip_cost_is_deducted_from_trade_return():
+    records = [
+        _record("2026-08-16 10:05:00", 110.0, 10.0),
+        _record("2026-08-16 10:10:00", 99.0, -10.0),
+    ]
+
+    analyzer = OIProfitAnalyzer(
+        records,
+        _candles(),
+        horizons=(5,),
+        fee_bps_per_side=5.0,
+        slippage_bps_per_side=2.0,
+    )
+    item = analyzer.observations[0]
+
+    assert analyzer.round_trip_cost_pct == pytest.approx(0.14)
+    assert item.net_return_pct == pytest.approx(
+        item.directional_return_pct - 0.14
+    )
 
 
 def test_bucket_thresholds_are_data_driven():
@@ -129,7 +169,9 @@ def test_summary_contains_profit_quality_metrics():
     assert summary
     first = next(iter(summary.values()))
     assert "avg_directional_return_pct" in first
-    assert "positive_rate_pct" in first
+    assert "avg_net_return_pct" in first
+    assert "median_net_return_pct" in first
+    assert "net_positive_rate_pct" in first
     assert "avg_mfe_pct" in first
     assert "avg_mae_pct" in first
     assert "mfe_mae_ratio" in first
