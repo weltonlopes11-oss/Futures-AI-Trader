@@ -19,12 +19,7 @@ class BinancePositioningConfig:
 
 
 class BinancePositioningContextLoader:
-    """Load causal Binance USD-M derivatives positioning context.
-
-    Public statistics such as global/top-trader long-short ratios are only
-    retained by Binance for a limited window. Every fetcher therefore accepts
-    an optional deterministic CSV snapshot so research runs remain reproducible.
-    """
+    """Load causal Binance USD-M derivatives positioning context."""
 
     def __init__(self, config: BinancePositioningConfig | None = None):
         self.config = config or BinancePositioningConfig()
@@ -48,10 +43,7 @@ class BinancePositioningContextLoader:
         return payload
 
     @staticmethod
-    def _snapshot_or_fetch(
-        snapshot_path: Path | None,
-        fetcher: Callable[[], pd.DataFrame],
-    ) -> pd.DataFrame:
+    def _snapshot_or_fetch(snapshot_path: Path | None, fetcher: Callable[[], pd.DataFrame]) -> pd.DataFrame:
         if snapshot_path and snapshot_path.exists():
             frame = pd.read_csv(snapshot_path)
             if "timestamp" in frame:
@@ -61,14 +53,7 @@ class BinancePositioningContextLoader:
             return frame.sort_values("timestamp").reset_index(drop=True)
         return fetcher()
 
-    def fetch_premium_index(
-        self,
-        symbol: str,
-        start: datetime,
-        end: datetime,
-        interval: str = "15m",
-        snapshot_path: Path | None = None,
-    ) -> pd.DataFrame:
+    def fetch_premium_index(self, symbol: str, start: datetime, end: datetime, interval: str = "15m", snapshot_path: Path | None = None) -> pd.DataFrame:
         def fetch() -> pd.DataFrame:
             rows = self._get(
                 "/fapi/v1/premiumIndexKlines",
@@ -86,7 +71,6 @@ class BinancePositioningContextLoader:
                 close_time = pd.to_datetime(int(row[6]), unit="ms", utc=True)
                 parsed.append(
                     {
-                        # premium_close is only knowable once this bar closes.
                         "timestamp": close_time,
                         "premium_open_time": open_time,
                         "premium_open": float(row[1]),
@@ -99,15 +83,7 @@ class BinancePositioningContextLoader:
 
         return self._snapshot_or_fetch(snapshot_path, fetch)
 
-    def _fetch_ratio(
-        self,
-        endpoint: str,
-        symbol: str,
-        start: datetime,
-        end: datetime,
-        prefix: str,
-        snapshot_path: Path | None = None,
-    ) -> pd.DataFrame:
+    def _fetch_ratio(self, endpoint: str, symbol: str, start: datetime, end: datetime, prefix: str, snapshot_path: Path | None = None) -> pd.DataFrame:
         def fetch() -> pd.DataFrame:
             rows = self._get(
                 endpoint,
@@ -137,39 +113,22 @@ class BinancePositioningContextLoader:
         return self._snapshot_or_fetch(snapshot_path, fetch)
 
     def fetch_global_ratio(self, symbol: str, start: datetime, end: datetime, snapshot_path: Path | None = None) -> pd.DataFrame:
-        return self._fetch_ratio(
-            "/futures/data/globalLongShortAccountRatio",
-            symbol,
-            start,
-            end,
-            "global_ls",
-            snapshot_path,
-        )
+        return self._fetch_ratio("/futures/data/globalLongShortAccountRatio", symbol, start, end, "global_ls", snapshot_path)
 
     def fetch_top_account_ratio(self, symbol: str, start: datetime, end: datetime, snapshot_path: Path | None = None) -> pd.DataFrame:
-        return self._fetch_ratio(
-            "/futures/data/topLongShortAccountRatio",
-            symbol,
-            start,
-            end,
-            "top_account_ls",
-            snapshot_path,
-        )
+        return self._fetch_ratio("/futures/data/topLongShortAccountRatio", symbol, start, end, "top_account_ls", snapshot_path)
 
     def fetch_top_position_ratio(self, symbol: str, start: datetime, end: datetime, snapshot_path: Path | None = None) -> pd.DataFrame:
-        return self._fetch_ratio(
-            "/futures/data/topLongShortPositionRatio",
-            symbol,
-            start,
-            end,
-            "top_position_ls",
-            snapshot_path,
-        )
+        return self._fetch_ratio("/futures/data/topLongShortPositionRatio", symbol, start, end, "top_position_ls", snapshot_path)
 
     @staticmethod
     def align_causally(signal: pd.DataFrame, context: pd.DataFrame) -> pd.DataFrame:
         if context.empty:
             return signal.copy()
-        right = context.copy().sort_values("timestamp")
-        left = signal.copy().sort_values("timestamp")
-        return pd.merge_asof(left, right, on="timestamp", direction="backward")
+        right = context.copy()
+        left = signal.copy()
+        left["timestamp"] = pd.to_datetime(left["timestamp"], utc=True, errors="coerce").dt.tz_localize(None).astype("datetime64[ns]")
+        right["timestamp"] = pd.to_datetime(right["timestamp"], utc=True, errors="coerce").dt.tz_localize(None).astype("datetime64[ns]")
+        left = left.dropna(subset=["timestamp"]).sort_values("timestamp")
+        right = right.dropna(subset=["timestamp"]).sort_values("timestamp")
+        return pd.merge_asof(left, right, on="timestamp", direction="backward", allow_exact_matches=True)
