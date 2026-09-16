@@ -16,7 +16,7 @@ class BybitDerivativesHistoryLoader:
     15-minute Binance signal frame.
     """
 
-    BASE_URL = "https://api.bybit.com"
+    BASE_URLS = ("https://api.bybit.com", "https://api.bytick.com")
     OI_PATH = "/v5/market/open-interest"
     FUNDING_PATH = "/v5/market/funding/history"
     LIMIT = 200
@@ -32,17 +32,27 @@ class BybitDerivativesHistoryLoader:
         return int(value.astimezone(timezone.utc).timestamp() * 1000)
 
     def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
-        response = self.session.get(
-            f"{self.BASE_URL}{path}", params=params, timeout=self.timeout_seconds
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if int(payload.get("retCode", -1)) != 0:
-            raise RuntimeError(
-                f"Bybit {path} failed: retCode={payload.get('retCode')} "
-                f"retMsg={payload.get('retMsg')}"
-            )
-        return payload
+        last_error: Exception | None = None
+        for base_url in self.BASE_URLS:
+            try:
+                response = self.session.get(
+                    f"{base_url}{path}", params=params, timeout=self.timeout_seconds
+                )
+                response.raise_for_status()
+                payload = response.json()
+                if int(payload.get("retCode", -1)) != 0:
+                    raise RuntimeError(
+                        f"Bybit {path} failed: retCode={payload.get('retCode')} "
+                        f"retMsg={payload.get('retMsg')}"
+                    )
+                return payload
+            except requests.HTTPError as exc:
+                last_error = exc
+                if exc.response is None or exc.response.status_code != 403:
+                    raise
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Unable to query Bybit endpoint: {path}")
 
     @staticmethod
     def _normalize_oi(frame: pd.DataFrame, start: datetime, end: datetime) -> pd.DataFrame:
@@ -183,9 +193,6 @@ class BybitDerivativesHistoryLoader:
         rows: list[dict[str, Any]] = []
         cursor_end = end_ms
 
-        # Funding observations are sparse (typically every 8h for ETHUSDT).
-        # Paginate backwards deterministically because the public endpoint has
-        # no cursor and returns up to 200 rows ending at endTime.
         while cursor_end >= start_ms:
             payload = self._get(
                 self.FUNDING_PATH,
