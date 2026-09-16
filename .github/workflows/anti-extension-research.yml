@@ -55,7 +55,7 @@ jobs:
       BACKTEST_EVAL_START_UTC: "2026-06-17T00:00:00Z"
       BACKTEST_EVAL_END_UTC: "2026-09-15T00:00:00Z"
       BACKTEST_STRATEGY_WARMUP_DAYS: "14"
-      BACKTEST_MACRO_WARMUP_DAYS: "420"
+      BACKTEST_MACRO_WARMUP_DAYS: "120"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -65,16 +65,16 @@ jobs:
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run macro regime validation
+      - name: Run daily-only regime validation
         shell: bash
         run: |
           set -euo pipefail
           python run_macro_regime_validation_fast.py | tee macro-regime-validation.txt
-      - name: Preserve macro regime result
+      - name: Preserve daily regime result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: macro-regime-validation-${{ github.run_number }}
+          name: daily-regime-validation-${{ github.run_number }}
           path: |
             artifacts/macro-regime-validation/
             macro-regime-validation.txt
