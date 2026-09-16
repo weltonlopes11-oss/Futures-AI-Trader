@@ -86,8 +86,6 @@ class BinancePositioningContextLoader:
         with ZipFile(BytesIO(response.content)) as archive:
             raw = pd.read_csv(archive.open(archive.namelist()[0]), header=None)
 
-        # Some archive files can contain a header row. Coerce epochs/numerics and
-        # naturally discard that row if present.
         raw = raw.iloc[:, : len(KLINE_COLUMNS)].copy()
         raw.columns = KLINE_COLUMNS[: raw.shape[1]]
         open_time = self._parse_epoch(raw["open_time"])
@@ -110,7 +108,9 @@ class BinancePositioningContextLoader:
             day = start.date()
             while day <= end.date():
                 try:
-                    frames.append(self._fetch_premium_data_vision_day(symbol, interval, day))
+                    day_frame = self._fetch_premium_data_vision_day(symbol, interval, day)
+                    if not day_frame.empty:
+                        frames.append(day_frame)
                 except requests.HTTPError as exc:
                     if exc.response is None or exc.response.status_code != 404:
                         raise
@@ -125,7 +125,6 @@ class BinancePositioningContextLoader:
                 if not result.empty:
                     return result.drop_duplicates("timestamp").sort_values("timestamp").reset_index(drop=True)
 
-            # REST remains a fallback for environments where the archive is not yet published.
             rows = self._get(
                 "/fapi/v1/premiumIndexKlines",
                 {
