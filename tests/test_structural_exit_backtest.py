@@ -19,8 +19,8 @@ def test_long_exits_on_adverse_prior_structure_break():
             {"timestamp": "2026-09-01T00:30:00Z", "open": 101, "high": 103, "low": 100, "close": 102, "atr": 10},
             {"timestamp": "2026-09-01T00:45:00Z", "open": 102, "high": 103, "low": 100, "close": 101, "atr": 10},
             {"timestamp": "2026-09-01T01:00:00Z", "open": 101, "high": 102, "low": 99, "close": 100, "atr": 10},
-            {"timestamp": "2026-09-01T01:15:00Z", "open": 100, "high": 101, "low": 98, "close": 99, "atr": 10},
-            {"timestamp": "2026-09-01T01:30:00Z", "open": 99, "high": 100, "low": 97, "close": 98, "atr": 10},
+            {"timestamp": "2026-09-01T01:15:00Z", "open": 100, "high": 101, "low": 97, "close": 98, "atr": 10},
+            {"timestamp": "2026-09-01T01:30:00Z", "open": 98, "high": 100, "low": 97, "close": 98, "atr": 10},
             {"timestamp": "2026-09-01T01:45:00Z", "open": 98, "high": 99, "low": 96, "close": 97, "atr": 10},
         ]
     )
