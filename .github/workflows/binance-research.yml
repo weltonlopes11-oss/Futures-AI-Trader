@@ -38,6 +38,7 @@ jobs:
             tests/test_oi_profit_analyzer.py \
             tests/test_binance_historical_collector.py \
             tests/test_binance_funding_rate.py \
+            tests/test_cvd.py \
             tests/test_operational_backtest.py
 
   operational-benchmark:
