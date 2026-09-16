@@ -22,21 +22,38 @@ class BinanceDataVisionLoader:
         stamp = day.isoformat()
         return f"{self.BASE_URL}/{symbol}/{interval}/{symbol}-{interval}-{stamp}.zip"
 
+    @staticmethod
+    def _parse_epoch(series: pd.Series) -> pd.Series:
+        numeric = pd.to_numeric(series, errors="coerce")
+        valid = numeric.dropna()
+        if valid.empty:
+            return pd.to_datetime(numeric, utc=True, errors="coerce")
+        magnitude = float(valid.abs().median())
+        if magnitude >= 1e17:
+            unit = "ns"
+        elif magnitude >= 1e14:
+            unit = "us"
+        elif magnitude >= 1e11:
+            unit = "ms"
+        else:
+            unit = "s"
+        return pd.to_datetime(numeric, unit=unit, utc=True, errors="coerce")
+
     def fetch_day(self, symbol: str, interval: str, day: date) -> pd.DataFrame:
         response = self.session.get(self._daily_url(symbol, interval, day), timeout=60)
         response.raise_for_status()
         with ZipFile(BytesIO(response.content)) as archive:
             csv_name = archive.namelist()[0]
             frame = pd.read_csv(archive.open(csv_name), header=None, names=self.COLUMNS)
-        frame["timestamp"] = pd.to_datetime(frame["timestamp"], unit="us", utc=True, errors="coerce")
-        # Older archives used milliseconds. Retry rows that became implausibly old/NaT.
-        raw = pd.read_csv(BytesIO(ZipFile(BytesIO(response.content)).read(ZipFile(BytesIO(response.content)).namelist()[0])), header=None, names=self.COLUMNS)
-        if frame["timestamp"].isna().all() or (not frame.empty and frame["timestamp"].dt.year.max() < 2020):
-            frame = raw
-            frame["timestamp"] = pd.to_datetime(frame["timestamp"], unit="ms", utc=True, errors="coerce")
+
+        # Binance archives changed timestamp precision over time. Detect the unit
+        # from the epoch magnitude instead of assuming milliseconds/microseconds.
+        frame["timestamp"] = self._parse_epoch(frame["timestamp"])
+        frame["close_time"] = self._parse_epoch(frame["close_time"])
         for col in ["open", "high", "low", "close", "volume", "quote_volume", "taker_buy_base", "taker_buy_quote"]:
             frame[col] = pd.to_numeric(frame[col], errors="coerce")
         frame["timestamp"] = frame["timestamp"].dt.tz_localize(None)
+        frame["close_time"] = frame["close_time"].dt.tz_localize(None)
         return frame.dropna(subset=["timestamp", "open", "high", "low", "close"]).drop_duplicates("timestamp").sort_values("timestamp").reset_index(drop=True)
 
     def fetch_window(self, symbol: str, interval: str, start: datetime, end: datetime) -> pd.DataFrame:
@@ -54,4 +71,7 @@ class BinanceDataVisionLoader:
         result = pd.concat(frames, ignore_index=True).drop_duplicates("timestamp").sort_values("timestamp")
         start_naive = start.astimezone(timezone.utc).replace(tzinfo=None)
         end_naive = end.astimezone(timezone.utc).replace(tzinfo=None)
-        return result[(result["timestamp"] >= start_naive) & (result["timestamp"] < end_naive)].reset_index(drop=True)
+        result = result[(result["timestamp"] >= start_naive) & (result["timestamp"] < end_naive)].reset_index(drop=True)
+        if result.empty:
+            raise RuntimeError(f"Binance Data Vision returned no {symbol} {interval} candles for {start.isoformat()} to {end.isoformat()}")
+        return result
