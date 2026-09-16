@@ -51,9 +51,29 @@ class BinanceMetricsDataVisionLoader:
 
     @staticmethod
     def align_causally(candles: pd.DataFrame, oi: pd.DataFrame) -> pd.DataFrame:
+        candles_aligned = candles.copy()
+        oi_aligned = oi.copy()
+
+        # pandas.merge_asof requires both merge keys to have exactly the same
+        # datetime dtype/resolution. Binance candle and Data Vision timestamps
+        # can arrive as datetime64[ms] and datetime64[us], respectively.
+        candles_aligned["timestamp"] = (
+            pd.to_datetime(candles_aligned["timestamp"], utc=True, errors="coerce")
+            .dt.tz_localize(None)
+            .astype("datetime64[ns]")
+        )
+        oi_aligned["open_interest_source_timestamp"] = (
+            pd.to_datetime(oi_aligned["open_interest_source_timestamp"], utc=True, errors="coerce")
+            .dt.tz_localize(None)
+            .astype("datetime64[ns]")
+        )
+
+        candles_aligned = candles_aligned.dropna(subset=["timestamp"]).sort_values("timestamp")
+        oi_aligned = oi_aligned.dropna(subset=["open_interest_source_timestamp"]).sort_values("open_interest_source_timestamp")
+
         return pd.merge_asof(
-            candles.sort_values("timestamp"),
-            oi.sort_values("open_interest_source_timestamp"),
+            candles_aligned,
+            oi_aligned,
             left_on="timestamp",
             right_on="open_interest_source_timestamp",
             direction="backward",
