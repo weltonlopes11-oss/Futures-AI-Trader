@@ -1,0 +1,94 @@
+name: Cloud Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      fee_bps_per_side:
+        description: "Trading fee in bps per side"
+        required: false
+        default: "0"
+      slippage_bps_per_side:
+        description: "Slippage in bps per side"
+        required: false
+        default: "0"
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feature/cloud-backtest]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      PYTHONUNBUFFERED: "1"
+      BACKTEST_DATA_SOURCE: FIXED
+      BACKTEST_SYMBOL: ETHUSDT
+      BACKTEST_INTERVAL: 1m
+      BACKTEST_LIMIT: "20000"
+      BACKTEST_WARMUP: "200"
+      BACKTEST_FIXED_DATA_PATH: data/ETHUSDT_1m_baseline_oi.csv
+      BACKTEST_FEE_BPS_PER_SIDE: ${{ github.event.inputs.fee_bps_per_side || '0' }}
+      BACKTEST_SLIPPAGE_BPS_PER_SIDE: ${{ github.event.inputs.slippage_bps_per_side || '0' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run test suite
+        run: python -m pytest -q
+
+      - name: Verify fixed OI dataset
+        run: |
+          test -f "$BACKTEST_FIXED_DATA_PATH" || {
+            echo "Missing fixed dataset: $BACKTEST_FIXED_DATA_PATH"
+            echo "Cloud backtests require the reproducible OI baseline to be available in the repository."
+            exit 1
+          }
+
+      - name: Run reproducible institutional backtest
+        run: |
+          mkdir -p artifacts
+          python run_backtest.py 2>&1 | tee artifacts/backtest-report.txt
+
+      - name: Run OI profit analysis
+        run: |
+          python run_oi_profit_analysis.py 2>&1 | tee artifacts/oi-profit-report.txt
+
+      - name: Write run metadata
+        if: always()
+        run: |
+          {
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "sha=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "fee_bps_per_side=${BACKTEST_FEE_BPS_PER_SIDE}"
+            echo "slippage_bps_per_side=${BACKTEST_SLIPPAGE_BPS_PER_SIDE}"
+            echo "dataset=${BACKTEST_FIXED_DATA_PATH}"
+          } > artifacts/run-metadata.txt
+
+      - name: Upload cloud backtest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-backtest-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
