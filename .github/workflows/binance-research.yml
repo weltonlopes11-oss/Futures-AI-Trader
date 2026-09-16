@@ -37,6 +37,7 @@ jobs:
             tests/test_open_interest_statistics.py \
             tests/test_oi_profit_analyzer.py \
             tests/test_binance_historical_collector.py \
+            tests/test_binance_funding_rate.py \
             tests/test_operational_backtest.py
 
   operational-benchmark:
@@ -52,7 +53,7 @@ jobs:
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run first operational net-return benchmark
+      - name: Run operational net-return benchmark
         shell: bash
         run: |
           set -euo pipefail
