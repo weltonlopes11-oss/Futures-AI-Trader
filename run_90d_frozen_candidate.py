@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import io
 import json
 import os
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 from backtest.anti_extension import AntiExtensionConfig, AntiExtensionFilter
 from backtest.binance_data_vision import BinanceDataVisionLoader
@@ -30,6 +33,44 @@ def longest_losing_streak(trades: pd.DataFrame) -> int:
     return best
 
 
+def _monthly_funding_archive(symbol: str, year: int, month: int) -> pd.DataFrame:
+    ym = f"{year:04d}-{month:02d}"
+    url = (
+        "https://data.binance.vision/data/futures/um/monthly/fundingRate/"
+        f"{symbol}/{symbol}-fundingRate-{ym}.zip"
+    )
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        names = [n for n in zf.namelist() if n.lower().endswith(".csv")]
+        if not names:
+            raise RuntimeError(f"No CSV in funding archive {url}")
+        with zf.open(names[0]) as fh:
+            frame = pd.read_csv(fh)
+    if not {"calc_time", "last_funding_rate"}.issubset(frame.columns):
+        raise RuntimeError(f"Unexpected funding archive columns for {ym}: {list(frame.columns)}")
+    return pd.DataFrame(
+        {
+            "fundingTime": pd.to_numeric(frame["calc_time"], errors="coerce"),
+            "fundingRate": pd.to_numeric(frame["last_funding_rate"], errors="coerce"),
+            "markPrice": pd.NA,
+        }
+    ).dropna(subset=["fundingTime", "fundingRate"])
+
+
+def fetch_funding_history(symbol: str, start: datetime, end: datetime, loader: BinanceFundingRateLoader) -> pd.DataFrame:
+    rows = []
+    # Completed months used in this frozen 90-day validation.
+    for year, month in [(2026, 6), (2026, 7), (2026, 8)]:
+        rows.append(_monthly_funding_archive(symbol, year, month))
+
+    # September is still an incomplete month; reuse the already-frozen Binance snapshot.
+    september = pd.read_csv("research_snapshots/ETHUSDT_funding_2026-09-01_2026-09-15.csv")
+    rows.append(september)
+    combined = pd.concat(rows, ignore_index=True, sort=False)
+    return loader._normalize(combined, start, end)
+
+
 def main():
     symbol = os.getenv("BACKTEST_SYMBOL", "ETHUSDT")
     eval_start = datetime.fromisoformat(os.getenv("BACKTEST_EVAL_START_UTC", "2026-06-17T00:00:00+00:00").replace("Z", "+00:00"))
@@ -42,7 +83,6 @@ def main():
     prices = BinanceDataVisionLoader()
     metrics = BinanceMetricsDataVisionLoader()
     funding_loader = BinanceFundingRateLoader()
-    funding_loader.BASE_URL = os.getenv("BACKTEST_FUNDING_URL", "https://api-dev.pipai.org/fapi/v1/fundingRate")
     positioning_loader = BinancePositioningContextLoader()
     cvd_builder = CumulativeVolumeDelta(fast=12, slow=26)
     graphical = GraphicalContext(GraphicalContextConfig())
@@ -51,7 +91,7 @@ def main():
     h1 = prices.fetch_window(symbol, "1h", fetch_start, eval_end)
     h4 = prices.fetch_window(symbol, "4h", fetch_start, eval_end)
     oi = metrics.fetch_window(symbol, fetch_start, eval_end)
-    funding = funding_loader.fetch_window(symbol, fetch_start, eval_end, snapshot_path=None)
+    funding = fetch_funding_history(symbol, fetch_start, eval_end, funding_loader)
     funding["funding_z"] = causal_event_zscore(funding["funding_rate"])
     premium = positioning_loader.fetch_premium_index(symbol, fetch_start, eval_end, interval="15m")
 
@@ -108,8 +148,7 @@ def main():
         "evaluation_end_utc": eval_end.isoformat(),
         "warmup_days": warmup_days,
         "fetch_start_utc": fetch_start.isoformat(),
-        "funding_transport": funding_loader.BASE_URL,
-        "funding_semantics": "Binance USD-M /fapi/v1/fundingRate passthrough; strategy definition unchanged",
+        "funding_source": "Binance Data Vision monthly fundingRate archives for Jun-Aug 2026 + frozen Sep 1-15 Binance snapshot",
         "fee_bps_per_side": engine.fee_bps_per_side,
         "slippage_bps_per_side": engine.slippage_bps_per_side,
         "coverage_pct": {"funding_z": funding_cov, "premium_z": premium_cov, "open_interest_change": oi_cov},
