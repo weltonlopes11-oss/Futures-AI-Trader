@@ -56,6 +56,8 @@ class BinancePositioningContextLoader:
             frame = pd.read_csv(snapshot_path)
             if "timestamp" in frame:
                 frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
+            if "premium_open_time" in frame:
+                frame["premium_open_time"] = pd.to_datetime(frame["premium_open_time"], utc=True)
             return frame.sort_values("timestamp").reset_index(drop=True)
         return fetcher()
 
@@ -80,14 +82,17 @@ class BinancePositioningContextLoader:
             )
             parsed = []
             for row in rows:
+                open_time = pd.to_datetime(int(row[0]), unit="ms", utc=True)
+                close_time = pd.to_datetime(int(row[6]), unit="ms", utc=True)
                 parsed.append(
                     {
-                        "timestamp": pd.to_datetime(int(row[0]), unit="ms", utc=True),
+                        # premium_close is only knowable once this bar closes.
+                        "timestamp": close_time,
+                        "premium_open_time": open_time,
                         "premium_open": float(row[1]),
                         "premium_high": float(row[2]),
                         "premium_low": float(row[3]),
                         "premium_close": float(row[4]),
-                        "premium_close_time": pd.to_datetime(int(row[6]), unit="ms", utc=True),
                     }
                 )
             return pd.DataFrame(parsed).sort_values("timestamp").reset_index(drop=True)
