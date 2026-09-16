@@ -1,0 +1,70 @@
+name: Binance Research Window
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_utc:
+        description: "Explicit UTC start, e.g. 2026-09-01T00:00:00Z"
+        required: false
+      end_utc:
+        description: "Explicit UTC end, e.g. 2026-09-15T00:00:00Z"
+        required: false
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_START_UTC: ${{ github.event.inputs.start_utc }}
+  BACKTEST_END_UTC: ${{ github.event.inputs.end_utc }}
+
+jobs:
+  deterministic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - run: |
+          python -m pytest -q \
+            tests/test_feature_engine_causality.py \
+            tests/test_open_interest_enricher.py \
+            tests/test_open_interest_statistics.py \
+            tests/test_oi_profit_analyzer.py \
+            tests/test_binance_historical_collector.py
+
+  binance-integration:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Capture Binance 15m / 1h / 4h + OI research window
+        run: python capture_binance_research_window.py | tee binance-capture.txt
+      - name: Preserve exact research snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-research-${{ github.run_number }}
+          path: |
+            artifacts/binance-window/
+            binance-capture.txt
+          if-no-files-found: warn
+          retention-days: 30
