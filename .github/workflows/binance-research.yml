@@ -41,6 +41,7 @@ jobs:
             tests/test_cvd.py \
             tests/test_order_book_liquidity.py \
             tests/test_liquidity_signal_engine.py \
+            tests/test_crypto_native_context.py \
             tests/test_operational_backtest.py
 
   live-order-book-smoke:
