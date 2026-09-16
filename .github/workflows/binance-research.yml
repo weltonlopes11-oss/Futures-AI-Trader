@@ -45,7 +45,8 @@ jobs:
             tests/test_crypto_native_context.py \
             tests/test_graphical_context.py \
             tests/test_operational_backtest.py \
-            tests/test_structural_exit_backtest.py
+            tests/test_structural_exit_backtest.py \
+            tests/test_entry_quality_and_managed_exit.py
 
   live-order-book-smoke:
     needs: deterministic-tests
@@ -161,5 +162,34 @@ jobs:
           path: |
             artifacts/structural-exit-benchmark/
             structural-exit-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  quality-management-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run entry quality and managed exit matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_quality_management_benchmark.py | tee quality-management-benchmark.txt
+      - name: Preserve quality management benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-management-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/quality-management-benchmark/
+            quality-management-benchmark.txt
           if-no-files-found: error
           retention-days: 30
