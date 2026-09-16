@@ -1,0 +1,92 @@
+{
+  "version": "v1.0-frozen",
+  "frozen_at_utc": "2026-09-16T18:45:00Z",
+  "symbol": "ETHUSDT",
+  "market": "USD-M perpetual futures",
+  "research_window": {
+    "start_utc": "2026-09-01T00:00:00Z",
+    "end_utc": "2026-09-15T00:00:00Z"
+  },
+  "timeframes": {
+    "signal": "15m",
+    "structure": "1h",
+    "regime": "4h"
+  },
+  "costs": {
+    "fee_bps_per_side": 4.0,
+    "slippage_bps_per_side": 1.0
+  },
+  "trend": {
+    "ema_fast": 12,
+    "ema_slow": 26,
+    "rule": "LONG when fast EMA > slow EMA; SHORT when fast EMA < slow EMA on 15m, 1h and 4h"
+  },
+  "volatility": {
+    "indicator": "ATR",
+    "period": 14
+  },
+  "open_interest": {
+    "source": "Binance USD-M metrics archive",
+    "rule": "open_interest_change_pct > 0",
+    "alignment": "causal backward"
+  },
+  "funding": {
+    "absolute_control_rule": "LONG funding_rate <= 0; SHORT funding_rate >= 0",
+    "relative_research_rule": "funding event z-score relative to prior events only; LONG z <= 0; SHORT z >= 0",
+    "z_window_events": 21,
+    "z_min_periods": 6,
+    "status": "relative rule frozen for continued research; absolute rule retained as control"
+  },
+  "cvd": {
+    "fast": 12,
+    "slow": 26,
+    "rule": "LONG CVD EMA12 > EMA26; SHORT CVD EMA12 < EMA26"
+  },
+  "premium": {
+    "rule": "closed 15m premium compared with prior 96-bar causal distribution; LONG z <= 0; SHORT z >= 0",
+    "window_bars": 96,
+    "min_periods": 48
+  },
+  "positioning": {
+    "components": ["global_ls_ratio", "top_account_ls_ratio", "top_position_ls_ratio"],
+    "transformation": "mean log-ratio pressure, causal z-score",
+    "status": "shadow/research; not promoted as hard filter"
+  },
+  "leverage_stress": {
+    "status": "shadow/research; not promoted as hard filter"
+  },
+  "cross_exchange": {
+    "planned_venues": ["Binance", "Bybit"],
+    "oi_rule": "mean of Binance and Bybit dOI%; both venues required",
+    "funding_rule": "mean of Binance and Bybit funding z-scores; both venues required",
+    "status": "implemented but not benchmarked because Bybit public endpoints returned HTTP 403 from GitHub-hosted runners; no synthetic replacement permitted"
+  },
+  "benchmark_reference": {
+    "primary_rr": 2.0,
+    "selection_policy": "Do not switch primary R:R retrospectively because another R:R looks better in-sample",
+    "promotion_requirements": [
+      "profit_factor > 1",
+      "expectancy_pct > 0",
+      "net_return_pct > 0 after fixed costs",
+      "acceptable drawdown",
+      "sufficient trade count",
+      "validation on untouched/out-of-sample data"
+    ]
+  },
+  "best_current_primary_rr_observation": {
+    "mode": "oi_funding_relative_cvd_premium",
+    "rr": 2.0,
+    "trades": 10,
+    "long": 6,
+    "short": 4,
+    "profit_factor": 0.886774,
+    "net_return_pct": -0.244160,
+    "expectancy_pct": -0.023588,
+    "max_drawdown_pct": -0.735027
+  },
+  "research_governance": {
+    "rule_changes_after_freeze": "must create a new protocol version",
+    "new_indicator_policy": "add one graphical indicator family at a time and compare against this frozen baseline",
+    "anti_overfit": "no parameter choice may be justified solely by the best result on the frozen September sample"
+  }
+}
