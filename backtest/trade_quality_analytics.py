@@ -21,14 +21,14 @@ ENTRY_FEATURES = [
     "bars_since_swing_high",
     "bars_since_swing_low",
     "structure_regime",
-    "swing_high_class",
-    "swing_low_class",
-    "bos_up",
-    "bos_down",
-    "choch_up",
-    "choch_down",
-    "double_top",
-    "double_bottom",
+    "swing_high_state",
+    "swing_low_state",
+    "bars_since_bos_up",
+    "bars_since_bos_down",
+    "bars_since_choch_up",
+    "bars_since_choch_down",
+    "bars_since_double_top",
+    "bars_since_double_bottom",
 ]
 
 
@@ -53,6 +53,27 @@ class TradeQualityAnalytics:
             raise ValueError(f"unknown side: {side}")
         return favorable, adverse
 
+    @staticmethod
+    def _bars_since_event(event: pd.Series) -> pd.Series:
+        event = event.fillna(False).astype(bool).reset_index(drop=True)
+        idx = np.arange(len(event), dtype=float)
+        last_event = pd.Series(np.where(event.to_numpy(), idx, np.nan)).ffill()
+        return pd.Series(idx) - last_event
+
+    def _prepare_context(self, context: pd.DataFrame) -> pd.DataFrame:
+        ctx = context.copy().sort_values("timestamp").reset_index(drop=True)
+        ctx["timestamp"] = pd.to_datetime(ctx["timestamp"], utc=True)
+
+        if "swing_high_class" in ctx.columns:
+            ctx["swing_high_state"] = ctx["swing_high_class"].replace("NONE", np.nan).ffill().fillna("NONE")
+        if "swing_low_class" in ctx.columns:
+            ctx["swing_low_state"] = ctx["swing_low_class"].replace("NONE", np.nan).ffill().fillna("NONE")
+
+        for event in ("bos_up", "bos_down", "choch_up", "choch_down", "double_top", "double_bottom"):
+            if event in ctx.columns:
+                ctx[f"bars_since_{event}"] = self._bars_since_event(ctx[event])
+        return ctx
+
     def enrich_trades(self, candles: pd.DataFrame, context: pd.DataFrame, trades: pd.DataFrame) -> pd.DataFrame:
         if trades.empty:
             return trades.copy()
@@ -69,8 +90,7 @@ class TradeQualityAnalytics:
 
         c = candles.copy().sort_values("timestamp").reset_index(drop=True)
         c["timestamp"] = pd.to_datetime(c["timestamp"], utc=True)
-        ctx = context.copy()
-        ctx["timestamp"] = pd.to_datetime(ctx["timestamp"], utc=True)
+        ctx = self._prepare_context(context)
         out_rows = []
 
         feature_cols = [col for col in ENTRY_FEATURES if col in ctx.columns]
@@ -144,6 +164,9 @@ class TradeQualityAnalytics:
             "entry_oi_change_pct", "entry_funding_z", "entry_premium_z",
             "entry_distance_to_swing_high_atr", "entry_distance_to_swing_low_atr",
             "entry_bars_since_swing_high", "entry_bars_since_swing_low",
+            "entry_bars_since_bos_up", "entry_bars_since_bos_down",
+            "entry_bars_since_choch_up", "entry_bars_since_choch_down",
+            "entry_bars_since_double_top", "entry_bars_since_double_bottom",
         ]
         numeric = [c for c in numeric if c in enriched.columns]
         rows = []
