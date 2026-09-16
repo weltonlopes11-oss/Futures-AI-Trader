@@ -87,11 +87,9 @@ def causal_event_zscore(
 ) -> pd.Series:
     """Causal z-score for sparse funding events.
 
-    Funding settles much less frequently than 15m bars. Scoring the event series
-    before candle alignment avoids counting the same settled funding value dozens
-    of times. Twenty-one prior events is roughly one week at an 8h cadence; six
-    events provide a two-day warm-up. Both are fixed calendar choices, not fitted
-    to trade PnL.
+    Twenty-one prior events is approximately one week for an 8h funding cadence;
+    six events provide a two-day warm-up. The current event is excluded from the
+    reference distribution, so future information cannot leak backwards.
     """
     return causal_relative_zscore(series, window=window, min_periods=min_periods)
 
@@ -231,17 +229,26 @@ def main():
     funding["funding_z"] = causal_event_zscore(funding["funding_rate"])
     premium = positioning_loader.fetch_premium_index(symbol, start, end, interval="15m")
 
-    bybit_oi = bybit_loader.fetch_open_interest(symbol, start, end, interval="15min")
-    bybit_funding = bybit_loader.fetch_funding(symbol, start, end)
-    bybit_funding["bybit_funding_z"] = causal_event_zscore(
-        bybit_funding["bybit_funding_rate"]
-    )
+    cross_exchange_available = True
+    cross_exchange_error = None
+    bybit_oi = pd.DataFrame()
+    bybit_funding = pd.DataFrame()
+    try:
+        bybit_oi = bybit_loader.fetch_open_interest(symbol, start, end, interval="15min")
+        bybit_funding = bybit_loader.fetch_funding(symbol, start, end)
+        bybit_funding["bybit_funding_z"] = causal_event_zscore(
+            bybit_funding["bybit_funding_rate"]
+        )
+    except Exception as exc:
+        cross_exchange_available = False
+        cross_exchange_error = f"{type(exc).__name__}: {exc}"
 
     mins = int((end - start).total_seconds() // 60)
     require_coverage(m15, mins // 15, "15m")
     require_coverage(h1, mins // 60, "1h")
     require_coverage(h4, mins // 240, "4h")
-    require_coverage(bybit_oi, mins // 15, "Bybit 15m OI")
+    if cross_exchange_available:
+        require_coverage(bybit_oi, mins // 15, "Bybit 15m OI")
 
     m15["atr"] = atr(m15)
     m15["signal_15m"] = trend(m15)
@@ -252,8 +259,15 @@ def main():
     context = metrics.align_causally(context, oi)
     context = funding_loader.align_causally(context, funding)
     context = positioning_loader.align_causally(context, premium)
-    context = bybit_loader.align_oi_causally(context, bybit_oi)
-    context = bybit_loader.align_funding_causally(context, bybit_funding)
+
+    if cross_exchange_available:
+        context = bybit_loader.align_oi_causally(context, bybit_oi)
+        context = bybit_loader.align_funding_causally(context, bybit_funding)
+    else:
+        context["bybit_open_interest"] = np.nan
+        context["bybit_open_interest_change_pct"] = np.nan
+        context["bybit_funding_rate"] = np.nan
+        context["bybit_funding_z"] = np.nan
 
     context["positioning_pressure"] = positioning_pressure(context)
     context["premium_z"] = causal_relative_zscore(context["premium_close"])
@@ -297,20 +311,22 @@ def main():
         raise RuntimeError(f"Insufficient causal premium-z coverage: {premium_z_coverage:.2f}%")
     if positioning_z_coverage < 90:
         raise RuntimeError(f"Insufficient causal positioning-z coverage: {positioning_z_coverage:.2f}%")
-    if bybit_oi_coverage < 99:
-        raise RuntimeError(f"Insufficient Bybit OI coverage: {bybit_oi_coverage:.2f}%")
-    if bybit_funding_coverage < 95:
-        raise RuntimeError(f"Insufficient Bybit funding coverage: {bybit_funding_coverage:.2f}%")
-    if bybit_funding_z_coverage < 75:
-        raise RuntimeError(
-            f"Insufficient Bybit relative funding coverage: {bybit_funding_z_coverage:.2f}%"
-        )
-    if cross_oi_coverage < 99:
-        raise RuntimeError(f"Insufficient cross-exchange OI coverage: {cross_oi_coverage:.2f}%")
-    if cross_funding_coverage < 75:
-        raise RuntimeError(
-            f"Insufficient cross-exchange funding coverage: {cross_funding_coverage:.2f}%"
-        )
+
+    if cross_exchange_available:
+        if bybit_oi_coverage < 99:
+            raise RuntimeError(f"Insufficient Bybit OI coverage: {bybit_oi_coverage:.2f}%")
+        if bybit_funding_coverage < 95:
+            raise RuntimeError(f"Insufficient Bybit funding coverage: {bybit_funding_coverage:.2f}%")
+        if bybit_funding_z_coverage < 75:
+            raise RuntimeError(
+                f"Insufficient Bybit relative funding coverage: {bybit_funding_z_coverage:.2f}%"
+            )
+        if cross_oi_coverage < 99:
+            raise RuntimeError(f"Insufficient cross-exchange OI coverage: {cross_oi_coverage:.2f}%")
+        if cross_funding_coverage < 75:
+            raise RuntimeError(
+                f"Insufficient cross-exchange funding coverage: {cross_funding_coverage:.2f}%"
+            )
 
     engine = OperationalBacktest(
         fee_bps_per_side=float(os.getenv("BACKTEST_FEE_BPS_PER_SIDE", "4")),
@@ -321,7 +337,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     rows = []
 
-    modes = (
+    modes = [
         ("baseline", "none", "none", False, False, False, False),
         ("open_interest", "binance", "none", False, False, False, False),
         ("oi_funding_absolute", "binance", "absolute", False, False, False, False),
@@ -332,10 +348,15 @@ def main():
         ("oi_funding_relative", "binance", "relative", False, False, False, False),
         ("oi_funding_relative_cvd", "binance", "relative", True, False, False, False),
         ("oi_funding_relative_cvd_premium", "binance", "relative", True, True, False, False),
-        ("cross_oi_funding_relative", "cross", "cross", False, False, False, False),
-        ("cross_oi_funding_relative_cvd", "cross", "cross", True, False, False, False),
-        ("cross_oi_funding_relative_cvd_premium", "cross", "cross", True, True, False, False),
-    )
+    ]
+    if cross_exchange_available:
+        modes.extend(
+            [
+                ("cross_oi_funding_relative", "cross", "cross", False, False, False, False),
+                ("cross_oi_funding_relative_cvd", "cross", "cross", True, False, False, False),
+                ("cross_oi_funding_relative_cvd_premium", "cross", "cross", True, True, False, False),
+            ]
+        )
 
     for mode, oi_mode, funding_mode, use_cvd, use_premium, use_positioning, use_stress in modes:
         decisions = build_decisions(
@@ -364,7 +385,7 @@ def main():
     results.to_csv(out / "results.csv", index=False)
 
     manifest = {
-        "source": "Binance Data Vision/funding snapshot + Bybit V5 public derivatives history",
+        "source": "Binance Data Vision/funding snapshot + optional Bybit V5 public derivatives history",
         "market": "ETH USDT linear perpetuals",
         "symbol": symbol,
         "start_utc": start.isoformat(),
@@ -372,8 +393,10 @@ def main():
         "signal": "15m",
         "structure": "1h",
         "regime": "4h",
-        "open_interest": "Binance metrics + Bybit V5 15m OI, causal backward alignment",
+        "open_interest": "Binance metrics; optional Bybit V5 15m OI, causal backward alignment",
         "oi_rule_absolute_control": "Binance open_interest_change_pct > 0",
+        "cross_exchange_available": cross_exchange_available,
+        "cross_exchange_error": cross_exchange_error,
         "cross_oi_rule": "mean(Binance dOI%, Bybit dOI%) > 0; both venues required",
         "oi_observations": len(oi),
         "bybit_oi_observations": len(bybit_oi),
