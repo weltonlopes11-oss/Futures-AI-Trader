@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 import requests
 
 
 class BinanceFundingRateLoader:
-    """Historical USD-M perpetual funding rates from Binance public REST API."""
+    """Historical USD-M perpetual funding rates with deterministic snapshot support."""
 
     BASE_URL = "https://fapi.binance.com/fapi/v1/fundingRate"
     LIMIT = 1000
@@ -21,13 +22,61 @@ class BinanceFundingRateLoader:
             value = value.replace(tzinfo=timezone.utc)
         return int(value.astimezone(timezone.utc).timestamp() * 1000)
 
-    def fetch_window(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    @staticmethod
+    def _normalize(frame: pd.DataFrame, start: datetime, end: datetime) -> pd.DataFrame:
+        required = {"fundingTime", "fundingRate"}
+        missing = required - set(frame.columns)
+        if missing:
+            raise RuntimeError(f"Funding-rate data missing columns: {sorted(missing)}")
+
+        frame = frame.copy()
+        frame["funding_source_timestamp"] = (
+            pd.to_datetime(pd.to_numeric(frame["fundingTime"], errors="coerce"), unit="ms", utc=True, errors="coerce")
+            .dt.tz_localize(None)
+            .astype("datetime64[ns]")
+        )
+        frame["funding_rate"] = pd.to_numeric(frame["fundingRate"], errors="coerce")
+        if "markPrice" in frame.columns:
+            frame["funding_mark_price"] = pd.to_numeric(frame["markPrice"], errors="coerce")
+        else:
+            frame["funding_mark_price"] = pd.NA
+
+        start_naive = start.astimezone(timezone.utc).replace(tzinfo=None)
+        end_naive = end.astimezone(timezone.utc).replace(tzinfo=None)
+        frame = frame[
+            (frame["funding_source_timestamp"] >= start_naive)
+            & (frame["funding_source_timestamp"] < end_naive)
+        ]
+        frame = (
+            frame[["funding_source_timestamp", "funding_rate", "funding_mark_price"]]
+            .dropna(subset=["funding_source_timestamp", "funding_rate"])
+            .drop_duplicates("funding_source_timestamp")
+            .sort_values("funding_source_timestamp")
+            .reset_index(drop=True)
+        )
+        if frame.empty:
+            raise RuntimeError("Funding-rate window is empty after normalization")
+        return frame
+
+    def fetch_window(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        snapshot_path: str | Path | None = None,
+    ) -> pd.DataFrame:
         if start.tzinfo is None:
             start = start.replace(tzinfo=timezone.utc)
         if end.tzinfo is None:
             end = end.replace(tzinfo=timezone.utc)
         if end <= start:
             raise ValueError("end must be after start")
+
+        if snapshot_path is not None:
+            path = Path(snapshot_path)
+            if not path.exists():
+                raise RuntimeError(f"Funding snapshot not found: {path}")
+            return self._normalize(pd.read_csv(path), start, end)
 
         start_ms = self._to_utc_ms(start)
         end_ms = self._to_utc_ms(end)
@@ -58,7 +107,6 @@ class BinanceFundingRateLoader:
             if next_cursor <= cursor:
                 raise RuntimeError("Funding-rate pagination did not advance")
             cursor = next_cursor
-
             if len(batch) < self.LIMIT:
                 break
 
@@ -67,40 +115,7 @@ class BinanceFundingRateLoader:
                 f"Binance returned no funding rates for {symbol} between "
                 f"{start.isoformat()} and {end.isoformat()}"
             )
-
-        frame = pd.DataFrame(rows)
-        required = {"fundingTime", "fundingRate"}
-        missing = required - set(frame.columns)
-        if missing:
-            raise RuntimeError(f"Funding-rate response missing columns: {sorted(missing)}")
-
-        frame["funding_source_timestamp"] = (
-            pd.to_datetime(pd.to_numeric(frame["fundingTime"], errors="coerce"), unit="ms", utc=True, errors="coerce")
-            .dt.tz_localize(None)
-            .astype("datetime64[ns]")
-        )
-        frame["funding_rate"] = pd.to_numeric(frame["fundingRate"], errors="coerce")
-        if "markPrice" in frame.columns:
-            frame["funding_mark_price"] = pd.to_numeric(frame["markPrice"], errors="coerce")
-        else:
-            frame["funding_mark_price"] = pd.NA
-
-        start_naive = start.astimezone(timezone.utc).replace(tzinfo=None)
-        end_naive = end.astimezone(timezone.utc).replace(tzinfo=None)
-        frame = frame[
-            (frame["funding_source_timestamp"] >= start_naive)
-            & (frame["funding_source_timestamp"] < end_naive)
-        ]
-        frame = (
-            frame[["funding_source_timestamp", "funding_rate", "funding_mark_price"]]
-            .dropna(subset=["funding_source_timestamp", "funding_rate"])
-            .drop_duplicates("funding_source_timestamp")
-            .sort_values("funding_source_timestamp")
-            .reset_index(drop=True)
-        )
-        if frame.empty:
-            raise RuntimeError("Funding-rate window is empty after normalization")
-        return frame
+        return self._normalize(pd.DataFrame(rows), start, end)
 
     @staticmethod
     def align_causally(candles: pd.DataFrame, funding: pd.DataFrame) -> pd.DataFrame:
