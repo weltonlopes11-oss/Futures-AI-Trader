@@ -22,13 +22,40 @@ class BinanceMetricsDataVisionLoader:
         response.raise_for_status()
         with ZipFile(BytesIO(response.content)) as archive:
             frame = pd.read_csv(archive.open(archive.namelist()[0]))
+
         required = {"create_time", "sum_open_interest"}
         missing = required - set(frame.columns)
         if missing:
             raise RuntimeError(f"Binance metrics archive missing columns: {sorted(missing)}")
-        frame["open_interest_source_timestamp"] = pd.to_datetime(frame["create_time"], utc=True, errors="coerce").dt.tz_localize(None)
+
+        frame["open_interest_source_timestamp"] = pd.to_datetime(
+            frame["create_time"], utc=True, errors="coerce"
+        ).dt.tz_localize(None)
         frame["open_interest"] = pd.to_numeric(frame["sum_open_interest"], errors="coerce")
-        return frame[["open_interest_source_timestamp", "open_interest"]].dropna().drop_duplicates("open_interest_source_timestamp").sort_values("open_interest_source_timestamp").reset_index(drop=True)
+
+        # Binance Data Vision metrics also contain crypto-native positioning data.
+        # These names mirror the public archive schema and allow deterministic
+        # historical research without relying on the 30-day REST retention window.
+        mapping = {
+            "count_long_short_ratio": "global_ls_ratio",
+            "count_toptrader_long_short_ratio": "top_account_ls_ratio",
+            "sum_toptrader_long_short_ratio": "top_position_ls_ratio",
+            "sum_taker_long_short_vol_ratio": "taker_ls_ratio",
+        }
+        for source, target in mapping.items():
+            if source in frame.columns:
+                frame[target] = pd.to_numeric(frame[source], errors="coerce")
+
+        keep = ["open_interest_source_timestamp", "open_interest"] + [
+            target for target in mapping.values() if target in frame.columns
+        ]
+        return (
+            frame[keep]
+            .dropna(subset=["open_interest_source_timestamp", "open_interest"])
+            .drop_duplicates("open_interest_source_timestamp")
+            .sort_values("open_interest_source_timestamp")
+            .reset_index(drop=True)
+        )
 
     def fetch_window(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
         if start.tzinfo is None:
@@ -40,10 +67,17 @@ class BinanceMetricsDataVisionLoader:
         while day <= end.date():
             frames.append(self.fetch_day(symbol, day))
             day += timedelta(days=1)
-        result = pd.concat(frames, ignore_index=True).drop_duplicates("open_interest_source_timestamp").sort_values("open_interest_source_timestamp")
+        result = (
+            pd.concat(frames, ignore_index=True)
+            .drop_duplicates("open_interest_source_timestamp")
+            .sort_values("open_interest_source_timestamp")
+        )
         start_naive = start.astimezone(timezone.utc).replace(tzinfo=None)
         end_naive = end.astimezone(timezone.utc).replace(tzinfo=None)
-        result = result[(result["open_interest_source_timestamp"] >= start_naive) & (result["open_interest_source_timestamp"] < end_naive)].reset_index(drop=True)
+        result = result[
+            (result["open_interest_source_timestamp"] >= start_naive)
+            & (result["open_interest_source_timestamp"] < end_naive)
+        ].reset_index(drop=True)
         if result.empty:
             raise RuntimeError("Binance Data Vision returned no Open Interest metrics")
         result["open_interest_change_pct"] = result["open_interest"].pct_change() * 100.0
@@ -54,22 +88,23 @@ class BinanceMetricsDataVisionLoader:
         candles_aligned = candles.copy()
         oi_aligned = oi.copy()
 
-        # pandas.merge_asof requires both merge keys to have exactly the same
-        # datetime dtype/resolution. Binance candle and Data Vision timestamps
-        # can arrive as datetime64[ms] and datetime64[us], respectively.
         candles_aligned["timestamp"] = (
             pd.to_datetime(candles_aligned["timestamp"], utc=True, errors="coerce")
             .dt.tz_localize(None)
             .astype("datetime64[ns]")
         )
         oi_aligned["open_interest_source_timestamp"] = (
-            pd.to_datetime(oi_aligned["open_interest_source_timestamp"], utc=True, errors="coerce")
+            pd.to_datetime(
+                oi_aligned["open_interest_source_timestamp"], utc=True, errors="coerce"
+            )
             .dt.tz_localize(None)
             .astype("datetime64[ns]")
         )
 
         candles_aligned = candles_aligned.dropna(subset=["timestamp"]).sort_values("timestamp")
-        oi_aligned = oi_aligned.dropna(subset=["open_interest_source_timestamp"]).sort_values("open_interest_source_timestamp")
+        oi_aligned = oi_aligned.dropna(
+            subset=["open_interest_source_timestamp"]
+        ).sort_values("open_interest_source_timestamp")
 
         return pd.merge_asof(
             candles_aligned,
