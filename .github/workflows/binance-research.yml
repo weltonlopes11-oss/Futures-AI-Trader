@@ -38,6 +38,7 @@ jobs:
             tests/test_oi_profit_analyzer.py \
             tests/test_binance_historical_collector.py \
             tests/test_binance_funding_rate.py \
+            tests/test_bybit_derivatives_history.py \
             tests/test_cvd.py \
             tests/test_order_book_liquidity.py \
             tests/test_liquidity_signal_engine.py \
