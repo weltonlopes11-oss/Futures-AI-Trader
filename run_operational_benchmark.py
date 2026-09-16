@@ -30,24 +30,41 @@ def trend(frame: pd.DataFrame, fast: int, slow: int) -> pd.Series:
 def causal_context(signal: pd.DataFrame, higher: pd.DataFrame, label: str) -> pd.DataFrame:
     h = higher.copy()
     h[label] = trend(h, 12, 26)
-    # Higher timeframe candle is only known after it closes.
-    h["available_at"] = pd.to_datetime(h["close_time"], unit="us", errors="coerce")
-    if h["available_at"].isna().all() or (not h.empty and h["available_at"].dt.year.max() < 2020):
-        h["available_at"] = pd.to_datetime(h["close_time"], unit="ms", errors="coerce")
-    return pd.merge_asof(signal.sort_values("timestamp"), h[["available_at", label]].dropna().sort_values("available_at"), left_on="timestamp", right_on="available_at", direction="backward")
+    # Data Vision loader already normalizes close_time to UTC-naive datetime.
+    h["available_at"] = pd.to_datetime(h["close_time"], errors="coerce")
+    return pd.merge_asof(
+        signal.sort_values("timestamp"),
+        h[["available_at", label]].dropna().sort_values("available_at"),
+        left_on="timestamp",
+        right_on="available_at",
+        direction="backward",
+    )
+
+
+def require_coverage(frame: pd.DataFrame, expected: int, label: str) -> None:
+    minimum = int(expected * 0.99)
+    if len(frame) < minimum:
+        raise RuntimeError(f"Insufficient {label} coverage: got {len(frame)}, expected at least {minimum} of {expected}")
 
 
 def main():
     symbol = os.getenv("BACKTEST_SYMBOL", "ETHUSDT")
     start = datetime.fromisoformat(os.getenv("BACKTEST_START_UTC", "2026-09-01T00:00:00+00:00").replace("Z", "+00:00"))
     end = datetime.fromisoformat(os.getenv("BACKTEST_END_UTC", "2026-09-15T00:00:00+00:00").replace("Z", "+00:00"))
-    if start.tzinfo is None: start = start.replace(tzinfo=timezone.utc)
-    if end.tzinfo is None: end = end.replace(tzinfo=timezone.utc)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
 
     loader = BinanceDataVisionLoader()
     m15 = loader.fetch_window(symbol, "15m", start, end)
     h1 = loader.fetch_window(symbol, "1h", start, end)
     h4 = loader.fetch_window(symbol, "4h", start, end)
+    total_minutes = int((end - start).total_seconds() // 60)
+    require_coverage(m15, total_minutes // 15, "15m")
+    require_coverage(h1, total_minutes // 60, "1h")
+    require_coverage(h4, total_minutes // 240, "4h")
+
     m15["atr"] = atr(m15)
     m15["signal_15m"] = trend(m15, 12, 26)
     context = causal_context(m15, h1, "trend_1h")
