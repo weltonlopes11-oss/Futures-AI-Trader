@@ -17,6 +17,9 @@ def test_premium_uses_close_time_for_causality(monkeypatch):
         assert path == "/fapi/v1/premiumIndexKlines"
         return [[1000, "0.1", "0.2", "0.0", "0.15", "0", 1999, "0", 1, "0", "0", "0"]]
 
+    # Force the deterministic unit test through the REST fallback. Production
+    # historical research prefers Data Vision, which avoids runner geo-blocks.
+    monkeypatch.setattr(loader, "_fetch_premium_data_vision_day", lambda *args, **kwargs: pd.DataFrame())
     monkeypatch.setattr(loader, "_get", fake_get)
     frame = loader.fetch_premium_index(
         "ETHUSDT",
