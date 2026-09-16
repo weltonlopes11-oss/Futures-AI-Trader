@@ -5,11 +5,14 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from backtest.binance_data_vision import BinanceDataVisionLoader
 from backtest.binance_funding_rate import BinanceFundingRateLoader
 from backtest.binance_metrics_data_vision import BinanceMetricsDataVisionLoader
+from backtest.binance_positioning_context import BinancePositioningContextLoader
+from backtest.crypto_leverage_stress import CryptoLeverageStressScore
 from backtest.cvd import CumulativeVolumeDelta
 from backtest.operational_backtest import OperationalBacktest
 
@@ -51,7 +54,27 @@ def require_coverage(frame, expected, label):
         raise RuntimeError(f"Insufficient {label} coverage: {len(frame)}/{expected}")
 
 
-def build_decisions(context, use_oi=False, use_funding=False, use_cvd=False):
+def positioning_pressure(frame: pd.DataFrame) -> pd.Series:
+    cols = ["global_ls_ratio", "top_account_ls_ratio", "top_position_ls_ratio"]
+    available = [c for c in cols if c in frame.columns]
+    if not available:
+        return pd.Series(np.nan, index=frame.index)
+    logs = pd.concat(
+        [np.log(pd.to_numeric(frame[c], errors="coerce").clip(lower=1e-9)) for c in available],
+        axis=1,
+    )
+    return logs.mean(axis=1)
+
+
+def build_decisions(
+    context,
+    use_oi=False,
+    use_funding=False,
+    use_cvd=False,
+    use_premium=False,
+    use_positioning=False,
+    use_leverage_stress=False,
+):
     c = context.copy()
     c["decision"] = "NO_TRADE"
 
@@ -66,11 +89,7 @@ def build_decisions(context, use_oi=False, use_funding=False, use_cvd=False):
         & (c.trend_4h == "SHORT")
     )
 
-    oi_confirm = (
-        c.open_interest_change_pct > 0
-        if use_oi
-        else pd.Series(True, index=c.index)
-    )
+    oi_confirm = c.open_interest_change_pct > 0 if use_oi else pd.Series(True, index=c.index)
 
     if use_funding:
         funding_long = c.funding_rate <= 0
@@ -86,8 +105,53 @@ def build_decisions(context, use_oi=False, use_funding=False, use_cvd=False):
         cvd_long = pd.Series(True, index=c.index)
         cvd_short = pd.Series(True, index=c.index)
 
-    c.loc[base_long & oi_confirm & funding_long & cvd_long, "decision"] = "LONG"
-    c.loc[base_short & oi_confirm & funding_short & cvd_short, "decision"] = "SHORT"
+    # Pre-registered sign rules: no fitted threshold. A discounted/negative
+    # perpetual premium confirms LONG; positive premium confirms SHORT.
+    if use_premium:
+        premium_long = c.premium_close <= 0
+        premium_short = c.premium_close >= 0
+    else:
+        premium_long = pd.Series(True, index=c.index)
+        premium_short = pd.Series(True, index=c.index)
+
+    # Anti-crowding positioning rule around the neutral 1.0 long/short ratio.
+    pressure = positioning_pressure(c)
+    if use_positioning:
+        positioning_long = pressure <= 0
+        positioning_short = pressure >= 0
+    else:
+        positioning_long = pd.Series(True, index=c.index)
+        positioning_short = pd.Series(True, index=c.index)
+
+    # The leverage-stress score is positive when LONG crowding dominates and
+    # negative when SHORT crowding dominates. Use only the sign, not a tuned cut.
+    if use_leverage_stress:
+        stress_long = c.crypto_leverage_stress_score <= 0
+        stress_short = c.crypto_leverage_stress_score >= 0
+    else:
+        stress_long = pd.Series(True, index=c.index)
+        stress_short = pd.Series(True, index=c.index)
+
+    long_ok = (
+        base_long
+        & oi_confirm
+        & funding_long
+        & cvd_long
+        & premium_long
+        & positioning_long
+        & stress_long
+    )
+    short_ok = (
+        base_short
+        & oi_confirm
+        & funding_short
+        & cvd_short
+        & premium_short
+        & positioning_short
+        & stress_short
+    )
+    c.loc[long_ok, "decision"] = "LONG"
+    c.loc[short_ok, "decision"] = "SHORT"
     return c
 
 
@@ -107,7 +171,9 @@ def main():
     prices = BinanceDataVisionLoader()
     metrics = BinanceMetricsDataVisionLoader()
     funding_loader = BinanceFundingRateLoader()
+    positioning_loader = BinancePositioningContextLoader()
     cvd_builder = CumulativeVolumeDelta(fast=12, slow=26)
+    leverage_builder = CryptoLeverageStressScore()
 
     funding_snapshot = Path("research_snapshots/ETHUSDT_funding_2026-09-01_2026-09-15.csv")
 
@@ -115,12 +181,8 @@ def main():
     h1 = prices.fetch_window(symbol, "1h", start, end)
     h4 = prices.fetch_window(symbol, "4h", start, end)
     oi = metrics.fetch_window(symbol, start, end)
-    funding = funding_loader.fetch_window(
-        symbol,
-        start,
-        end,
-        snapshot_path=funding_snapshot,
-    )
+    funding = funding_loader.fetch_window(symbol, start, end, snapshot_path=funding_snapshot)
+    premium = positioning_loader.fetch_premium_index(symbol, start, end, interval="15m")
 
     mins = int((end - start).total_seconds() // 60)
     require_coverage(m15, mins // 15, "15m")
@@ -135,10 +197,15 @@ def main():
     context = causal_context(context, h4, "trend_4h")
     context = metrics.align_causally(context, oi)
     context = funding_loader.align_causally(context, funding)
+    context = positioning_loader.align_causally(context, premium)
+    context = leverage_builder.enrich(context)
 
     oi_coverage = context.open_interest.notna().mean() * 100
     funding_coverage = context.funding_rate.notna().mean() * 100
     cvd_coverage = context.cvd_signal.notna().mean() * 100
+    premium_coverage = context.premium_close.notna().mean() * 100
+    positioning_coverage = positioning_pressure(context).notna().mean() * 100
+    stress_coverage = context.crypto_leverage_stress_score.notna().mean() * 100
 
     if oi_coverage < 99:
         raise RuntimeError(f"Insufficient OI coverage: {oi_coverage:.2f}%")
@@ -146,6 +213,10 @@ def main():
         raise RuntimeError(f"Insufficient funding coverage: {funding_coverage:.2f}%")
     if cvd_coverage < 99:
         raise RuntimeError(f"Insufficient CVD coverage: {cvd_coverage:.2f}%")
+    if premium_coverage < 95:
+        raise RuntimeError(f"Insufficient premium coverage: {premium_coverage:.2f}%")
+    if positioning_coverage < 95:
+        raise RuntimeError(f"Insufficient positioning coverage: {positioning_coverage:.2f}%")
 
     engine = OperationalBacktest(
         fee_bps_per_side=float(os.getenv("BACKTEST_FEE_BPS_PER_SIDE", "4")),
@@ -157,25 +228,27 @@ def main():
     rows = []
 
     modes = (
-        ("baseline", False, False, False),
-        ("open_interest", True, False, False),
-        ("oi_funding", True, True, False),
-        ("oi_funding_cvd", True, True, True),
+        ("baseline", False, False, False, False, False, False),
+        ("open_interest", True, False, False, False, False, False),
+        ("oi_funding", True, True, False, False, False, False),
+        ("oi_funding_cvd", True, True, True, False, False, False),
+        ("oi_funding_cvd_premium", True, True, True, True, False, False),
+        ("oi_funding_cvd_premium_positioning", True, True, True, True, True, False),
+        ("oi_funding_cvd_premium_positioning_stress", True, True, True, True, True, True),
     )
 
-    for mode, use_oi, use_funding, use_cvd in modes:
+    for mode, use_oi, use_funding, use_cvd, use_premium, use_positioning, use_stress in modes:
         decisions = build_decisions(
             context,
             use_oi=use_oi,
             use_funding=use_funding,
             use_cvd=use_cvd,
+            use_premium=use_premium,
+            use_positioning=use_positioning,
+            use_leverage_stress=use_stress,
         )
         for rr in (1.0, 1.5, 2.0, 3.0):
-            trades = engine.run(
-                decisions,
-                decisions[["timestamp", "decision"]],
-                rr=rr,
-            )
+            trades = engine.run(decisions, decisions[["timestamp", "decision"]], rr=rr)
             met = engine.metrics(trades)
             met.update({"mode": mode, "rr": rr})
             rows.append(met)
@@ -183,23 +256,15 @@ def main():
 
     results = pd.DataFrame(rows)[
         [
-            "mode",
-            "rr",
-            "trades",
-            "win_rate_pct",
-            "net_return_pct",
-            "profit_factor",
-            "expectancy_pct",
-            "max_drawdown_pct",
-            "payoff",
-            "long",
-            "short",
+            "mode", "rr", "trades", "win_rate_pct", "net_return_pct",
+            "profit_factor", "expectancy_pct", "max_drawdown_pct", "payoff",
+            "long", "short",
         ]
     ]
     results.to_csv(out / "results.csv", index=False)
 
     manifest = {
-        "source": "Binance Data Vision + official Binance funding snapshot",
+        "source": "Binance Data Vision + official Binance funding snapshot + Binance premium index",
         "market": "USD-M Futures",
         "symbol": symbol,
         "start_utc": start.isoformat(),
@@ -212,24 +277,25 @@ def main():
         "oi_observations": len(oi),
         "oi_coverage_pct": oi_coverage,
         "funding_rate": "Official Binance USD-M funding history snapshot, causal backward alignment",
-        "funding_snapshot": str(funding_snapshot),
-        "funding_rule": "with OI expansion: LONG funding_rate <= 0; SHORT funding_rate >= 0",
-        "funding_observations": len(funding),
+        "funding_rule": "LONG funding_rate <= 0; SHORT funding_rate >= 0",
         "funding_coverage_pct": funding_coverage,
         "cvd": "Derived from Binance USD-M 15m kline volume and taker_buy_base",
-        "cvd_formula": "cvd_delta = 2*taker_buy_base - volume; cvd = cumulative sum(cvd_delta)",
-        "cvd_rule": "LONG requires CVD EMA12 > EMA26; SHORT requires CVD EMA12 < EMA26",
+        "cvd_rule": "LONG CVD EMA12 > EMA26; SHORT CVD EMA12 < EMA26",
         "cvd_coverage_pct": cvd_coverage,
+        "premium_rule": "LONG premium_close <= 0; SHORT premium_close >= 0; closed premium bars only",
+        "premium_coverage_pct": premium_coverage,
+        "positioning": "Data Vision global/top-account/top-position long-short ratios",
+        "positioning_rule": "anti-crowding around geometric-average neutral ratio 1.0",
+        "positioning_coverage_pct": positioning_coverage,
+        "leverage_stress_rule": "LONG stress <= 0; SHORT stress >= 0; sign only, no tuned threshold",
+        "leverage_stress_coverage_pct": stress_coverage,
         "fee_bps_per_side": engine.fee_bps_per_side,
         "slippage_bps_per_side": engine.slippage_bps_per_side,
         "candles_15m": len(m15),
         "candles_1h": len(h1),
         "candles_4h": len(h4),
     }
-    (out / "manifest.json").write_text(
-        json.dumps(manifest, indent=2),
-        encoding="utf-8",
-    )
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps(manifest, indent=2))
     print(results.to_string(index=False))
 
