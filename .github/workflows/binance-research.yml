@@ -40,6 +40,7 @@ jobs:
             tests/test_binance_funding_rate.py \
             tests/test_cvd.py \
             tests/test_order_book_liquidity.py \
+            tests/test_liquidity_signal_engine.py \
             tests/test_operational_backtest.py
 
   live-order-book-smoke:
