@@ -44,7 +44,8 @@ jobs:
             tests/test_liquidity_signal_engine.py \
             tests/test_crypto_native_context.py \
             tests/test_graphical_context.py \
-            tests/test_operational_backtest.py
+            tests/test_operational_backtest.py \
+            tests/test_structural_exit_backtest.py
 
   live-order-book-smoke:
     needs: deterministic-tests
@@ -131,5 +132,34 @@ jobs:
           path: |
             artifacts/graphical-benchmark/
             graphical-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  structural-exit-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run frozen Keltner entries with structural exits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_structural_exit_benchmark.py | tee structural-exit-benchmark.txt
+      - name: Preserve structural exit benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structural-exit-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/structural-exit-benchmark/
+            structural-exit-benchmark.txt
           if-no-files-found: error
           retention-days: 30
