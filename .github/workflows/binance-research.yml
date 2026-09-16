@@ -2,13 +2,6 @@ name: Binance Research Window
 
 on:
   workflow_dispatch:
-    inputs:
-      start_utc:
-        description: "Explicit UTC start, e.g. 2026-09-01T00:00:00Z"
-        required: false
-      end_utc:
-        description: "Explicit UTC end, e.g. 2026-09-15T00:00:00Z"
-        required: false
   pull_request:
     branches: [main]
 
@@ -18,8 +11,10 @@ permissions:
 env:
   PYTHONUNBUFFERED: "1"
   BACKTEST_SYMBOL: ETHUSDT
-  BACKTEST_START_UTC: ${{ github.event.inputs.start_utc }}
-  BACKTEST_END_UTC: ${{ github.event.inputs.end_utc }}
+  BACKTEST_START_UTC: "2026-09-01T00:00:00Z"
+  BACKTEST_END_UTC: "2026-09-15T00:00:00Z"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
 
 jobs:
   deterministic-tests:
@@ -41,9 +36,10 @@ jobs:
             tests/test_open_interest_enricher.py \
             tests/test_open_interest_statistics.py \
             tests/test_oi_profit_analyzer.py \
-            tests/test_binance_historical_collector.py
+            tests/test_binance_historical_collector.py \
+            tests/test_operational_backtest.py
 
-  binance-integration:
+  operational-benchmark:
     needs: deterministic-tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -56,15 +52,18 @@ jobs:
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Capture Binance 15m / 1h / 4h + OI research window
-        run: python capture_binance_research_window.py | tee binance-capture.txt
-      - name: Preserve exact research snapshot
+      - name: Run first operational net-return benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_operational_benchmark.py | tee operational-benchmark.txt
+      - name: Preserve trades and benchmark
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: binance-research-${{ github.run_number }}
+          name: operational-benchmark-${{ github.run_number }}
           path: |
-            artifacts/binance-window/
-            binance-capture.txt
-          if-no-files-found: warn
+            artifacts/operational-benchmark/
+            operational-benchmark.txt
+          if-no-files-found: error
           retention-days: 30
