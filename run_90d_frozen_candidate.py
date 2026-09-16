@@ -42,6 +42,7 @@ def main():
     prices = BinanceDataVisionLoader()
     metrics = BinanceMetricsDataVisionLoader()
     funding_loader = BinanceFundingRateLoader()
+    funding_loader.BASE_URL = os.getenv("BACKTEST_FUNDING_URL", "https://api-dev.pipai.org/fapi/v1/fundingRate")
     positioning_loader = BinancePositioningContextLoader()
     cvd_builder = CumulativeVolumeDelta(fast=12, slow=26)
     graphical = GraphicalContext(GraphicalContextConfig())
@@ -107,6 +108,8 @@ def main():
         "evaluation_end_utc": eval_end.isoformat(),
         "warmup_days": warmup_days,
         "fetch_start_utc": fetch_start.isoformat(),
+        "funding_transport": funding_loader.BASE_URL,
+        "funding_semantics": "Binance USD-M /fapi/v1/fundingRate passthrough; strategy definition unchanged",
         "fee_bps_per_side": engine.fee_bps_per_side,
         "slippage_bps_per_side": engine.slippage_bps_per_side,
         "coverage_pct": {"funding_z": funding_cov, "premium_z": premium_cov, "open_interest_change": oi_cov},
