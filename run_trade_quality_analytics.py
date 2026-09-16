@@ -102,12 +102,12 @@ def main():
     summary.to_csv(out / "winner_loser_summary_rr_2.csv", index=False)
 
     feature_counts = {}
-    for col in ["entry_structure_regime", "entry_swing_high_class", "entry_swing_low_class"]:
+    for col in ["entry_structure_regime", "entry_swing_high_state", "entry_swing_low_state"]:
         if col in enriched.columns:
             feature_counts[col] = enriched[col].fillna("NA").value_counts().to_dict()
 
     manifest = {
-        "benchmark": "trade-quality-analytics-v1",
+        "benchmark": "trade-quality-analytics-v1.1",
         "symbol": symbol,
         "start_utc": start.isoformat(),
         "end_utc": end.isoformat(),
@@ -125,7 +125,7 @@ def main():
         "reached_1r": int(enriched["reached_1r"].sum()) if len(enriched) else 0,
         "reached_2r": int(enriched["reached_2r"].sum()) if len(enriched) else 0,
         "structural_entry_counts": feature_counts,
-        "note": "Diagnostic only. No thresholds or trading rules are promoted from this frozen September sample.",
+        "note": "Diagnostic only. Persistent swing states and event recency are causal and use only information known at signal_time. No thresholds or trading rules are promoted from this frozen September sample.",
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     print(json.dumps(manifest, indent=2, default=str))
@@ -135,7 +135,10 @@ def main():
     show = [c for c in [
         "signal_time", "side", "outcome", "net_return_pct", "mfe_r", "mae_r",
         "bars_to_mfe", "bars_to_mae", "trade_duration_bars",
-        "entry_structure_regime", "entry_swing_high_class", "entry_swing_low_class",
+        "entry_structure_regime", "entry_swing_high_state", "entry_swing_low_state",
+        "entry_bars_since_bos_up", "entry_bars_since_bos_down",
+        "entry_bars_since_choch_up", "entry_bars_since_choch_down",
+        "entry_bars_since_double_top", "entry_bars_since_double_bottom",
         "entry_distance_to_swing_high_atr", "entry_distance_to_swing_low_atr",
         "entry_keltner_position", "entry_adx", "entry_adx_delta", "entry_vwap_distance_atr",
         "entry_oi_change_pct", "entry_funding_z", "entry_premium_z",
