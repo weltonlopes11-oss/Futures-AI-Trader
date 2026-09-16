@@ -17,16 +17,17 @@ from backtest.graphical_context import GraphicalContext, GraphicalContextConfig
 from backtest.structural_exit_backtest import StructuralExitBacktest
 from run_90d_frozen_candidate import fetch_funding_history, longest_losing_streak
 from run_graphical_benchmark import apply_graphical_battery
-from run_operational_benchmark import atr, build_decisions, causal_context, causal_event_zscore, causal_relative_zscore, require_coverage, trend
+from run_operational_benchmark import atr, build_decisions, causal_context, causal_event_zscore, causal_relative_zscore, trend
 
 
 def macro_regime(frame: pd.DataFrame, fast: int = 20, slow: int = 50) -> pd.DataFrame:
     x = frame.copy()
-    x["ema_fast"] = x["close"].ewm(span=fast, adjust=False).mean()
-    x["ema_slow"] = x["close"].ewm(span=slow, adjust=False).mean()
+    x["ema_fast"] = x["close"].ewm(span=fast, adjust=False, min_periods=fast).mean()
+    x["ema_slow"] = x["close"].ewm(span=slow, adjust=False, min_periods=slow).mean()
+    valid = x["ema_fast"].notna() & x["ema_slow"].notna()
     x["regime"] = "NEUTRAL"
-    x.loc[(x["ema_fast"] > x["ema_slow"]) & (x["close"] > x["ema_fast"]), "regime"] = "BULL"
-    x.loc[(x["ema_fast"] < x["ema_slow"]) & (x["close"] < x["ema_fast"]), "regime"] = "BEAR"
+    x.loc[valid & (x["ema_fast"] > x["ema_slow"]) & (x["close"] > x["ema_fast"]), "regime"] = "BULL"
+    x.loc[valid & (x["ema_fast"] < x["ema_slow"]) & (x["close"] < x["ema_fast"]), "regime"] = "BEAR"
     x["available_at"] = pd.to_datetime(x["close_time"], errors="coerce")
     return x[["available_at", "regime"]].dropna().sort_values("available_at")
 
@@ -64,11 +65,15 @@ def main():
     symbol = os.getenv("BACKTEST_SYMBOL", "ETHUSDT")
     eval_start = datetime.fromisoformat(os.getenv("BACKTEST_EVAL_START_UTC", "2026-06-17T00:00:00+00:00").replace("Z", "+00:00"))
     eval_end = datetime.fromisoformat(os.getenv("BACKTEST_EVAL_END_UTC", "2026-09-15T00:00:00+00:00").replace("Z", "+00:00"))
-    if eval_start.tzinfo is None: eval_start = eval_start.replace(tzinfo=timezone.utc)
-    if eval_end.tzinfo is None: eval_end = eval_end.replace(tzinfo=timezone.utc)
+    if eval_start.tzinfo is None:
+        eval_start = eval_start.replace(tzinfo=timezone.utc)
+    if eval_end.tzinfo is None:
+        eval_end = eval_end.replace(tzinfo=timezone.utc)
 
-    warmup_days = int(os.getenv("BACKTEST_WARMUP_DAYS", "180"))
-    fetch_start = eval_start - timedelta(days=warmup_days)
+    strategy_warmup_days = int(os.getenv("BACKTEST_STRATEGY_WARMUP_DAYS", "14"))
+    macro_warmup_days = int(os.getenv("BACKTEST_MACRO_WARMUP_DAYS", "420"))
+    strategy_fetch_start = eval_start - timedelta(days=strategy_warmup_days)
+    macro_fetch_start = eval_start - timedelta(days=macro_warmup_days)
 
     prices = BinanceDataVisionLoader()
     metrics_loader = BinanceMetricsDataVisionLoader()
@@ -77,15 +82,18 @@ def main():
     cvd_builder = CumulativeVolumeDelta(fast=12, slow=26)
     graphical = GraphicalContext(GraphicalContextConfig())
 
-    m15 = prices.fetch_window(symbol, "15m", fetch_start, eval_end)
-    h1 = prices.fetch_window(symbol, "1h", fetch_start, eval_end)
-    h4 = prices.fetch_window(symbol, "4h", fetch_start, eval_end)
-    d1 = prices.fetch_window(symbol, "1d", fetch_start, eval_end)
-    w1 = prices.fetch_window(symbol, "1w", fetch_start, eval_end)
-    oi = metrics_loader.fetch_window(symbol, fetch_start, eval_end)
-    funding = fetch_funding_history(symbol, fetch_start, eval_end, funding_loader)
+    # Original candidate inputs retain the same 14-day warmup as the 90-day control.
+    m15 = prices.fetch_window(symbol, "15m", strategy_fetch_start, eval_end)
+    h1 = prices.fetch_window(symbol, "1h", strategy_fetch_start, eval_end)
+    h4 = prices.fetch_window(symbol, "4h", strategy_fetch_start, eval_end)
+    oi = metrics_loader.fetch_window(symbol, strategy_fetch_start, eval_end)
+    funding = fetch_funding_history(symbol, strategy_fetch_start, eval_end, funding_loader)
     funding["funding_z"] = causal_event_zscore(funding["funding_rate"])
-    premium = positioning_loader.fetch_premium_index(symbol, fetch_start, eval_end, interval="15m")
+    premium = positioning_loader.fetch_premium_index(symbol, strategy_fetch_start, eval_end, interval="15m")
+
+    # Only macro candles receive the longer history needed to form a causal EMA50 weekly.
+    d1 = prices.fetch_window(symbol, "1d", macro_fetch_start, eval_end)
+    w1 = prices.fetch_window(symbol, "1w", macro_fetch_start, eval_end)
 
     m15["atr"] = atr(m15)
     m15["signal_15m"] = trend(m15)
@@ -137,6 +145,8 @@ def main():
         met["mode"] = mode
         met["allowed_long_signals"] = int((d["decision"] == "LONG").sum())
         met["allowed_short_signals"] = int((d["decision"] == "SHORT").sum())
+        met["trade_longs"] = int((trades["side"] == "LONG").sum()) if len(trades) else 0
+        met["trade_shorts"] = int((trades["side"] == "SHORT").sum()) if len(trades) else 0
         rows.append(met)
         trades.to_csv(out / f"trades_{mode}.csv", index=False)
 
@@ -148,10 +158,13 @@ def main():
         "symbol": symbol,
         "evaluation_start_utc": eval_start.isoformat(),
         "evaluation_end_utc": eval_end.isoformat(),
+        "strategy_warmup_days": strategy_warmup_days,
+        "macro_warmup_days": macro_warmup_days,
         "macro_rule": {
             "bull": "EMA20 > EMA50 and close > EMA20",
             "bear": "EMA20 < EMA50 and close < EMA20",
             "neutral": "otherwise",
+            "causality": "1D/1W regime becomes available only after candle close; EMA50 requires 50 completed bars",
             "daily_only": "LONG only in 1D bull; SHORT only in 1D bear; neutral blocks",
             "weekly_daily": "LONG only when 1W+1D bull; SHORT only when 1W+1D bear; disagreement blocks",
         },
