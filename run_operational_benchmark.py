@@ -66,6 +66,20 @@ def positioning_pressure(frame: pd.DataFrame) -> pd.Series:
     return logs.mean(axis=1)
 
 
+def causal_relative_zscore(series: pd.Series, window: int = 96, min_periods: int = 48) -> pd.Series:
+    """Compare the current observation with prior history only.
+
+    The current value is not included in the rolling mean/std, and no future
+    observation can affect an earlier score. Zero is therefore a natural,
+    non-fitted threshold: above recent normal vs below recent normal.
+    """
+    s = pd.to_numeric(series, errors="coerce")
+    prior = s.shift(1)
+    mean = prior.rolling(window=window, min_periods=min_periods).mean()
+    std = prior.rolling(window=window, min_periods=min_periods).std(ddof=0)
+    return ((s - mean) / std.replace(0.0, np.nan)).clip(-5.0, 5.0)
+
+
 def build_decisions(
     context,
     use_oi=False,
@@ -105,26 +119,26 @@ def build_decisions(
         cvd_long = pd.Series(True, index=c.index)
         cvd_short = pd.Series(True, index=c.index)
 
-    # Pre-registered sign rules: no fitted threshold. A discounted/negative
-    # perpetual premium confirms LONG; positive premium confirms SHORT.
+    # Premium is structurally biased around zero in some regimes. Compare it
+    # with its own prior 24h distribution (96 x 15m) rather than absolute zero.
     if use_premium:
-        premium_long = c.premium_close <= 0
-        premium_short = c.premium_close >= 0
+        premium_long = c.premium_z <= 0
+        premium_short = c.premium_z >= 0
     else:
         premium_long = pd.Series(True, index=c.index)
         premium_short = pd.Series(True, index=c.index)
 
-    # Anti-crowding positioning rule around the neutral 1.0 long/short ratio.
-    pressure = positioning_pressure(c)
+    # Long/short ratios can also have a persistent non-1.0 baseline. Use the
+    # current log-ratio pressure relative to its own prior distribution.
     if use_positioning:
-        positioning_long = pressure <= 0
-        positioning_short = pressure >= 0
+        positioning_long = c.positioning_z <= 0
+        positioning_short = c.positioning_z >= 0
     else:
         positioning_long = pd.Series(True, index=c.index)
         positioning_short = pd.Series(True, index=c.index)
 
-    # The leverage-stress score is positive when LONG crowding dominates and
-    # negative when SHORT crowding dominates. Use only the sign, not a tuned cut.
+    # Stress already normalizes OI/funding/premium/positioning/CVD internally.
+    # Sign is used as the pre-registered, non-optimized decision boundary.
     if use_leverage_stress:
         stress_long = c.crypto_leverage_stress_score <= 0
         stress_short = c.crypto_leverage_stress_score >= 0
@@ -198,13 +212,19 @@ def main():
     context = metrics.align_causally(context, oi)
     context = funding_loader.align_causally(context, funding)
     context = positioning_loader.align_causally(context, premium)
+
+    context["positioning_pressure"] = positioning_pressure(context)
+    context["premium_z"] = causal_relative_zscore(context["premium_close"])
+    context["positioning_z"] = causal_relative_zscore(context["positioning_pressure"])
     context = leverage_builder.enrich(context)
 
     oi_coverage = context.open_interest.notna().mean() * 100
     funding_coverage = context.funding_rate.notna().mean() * 100
     cvd_coverage = context.cvd_signal.notna().mean() * 100
     premium_coverage = context.premium_close.notna().mean() * 100
-    positioning_coverage = positioning_pressure(context).notna().mean() * 100
+    positioning_coverage = context.positioning_pressure.notna().mean() * 100
+    premium_z_coverage = context.premium_z.notna().mean() * 100
+    positioning_z_coverage = context.positioning_z.notna().mean() * 100
     stress_coverage = context.crypto_leverage_stress_score.notna().mean() * 100
 
     if oi_coverage < 99:
@@ -217,6 +237,10 @@ def main():
         raise RuntimeError(f"Insufficient premium coverage: {premium_coverage:.2f}%")
     if positioning_coverage < 95:
         raise RuntimeError(f"Insufficient positioning coverage: {positioning_coverage:.2f}%")
+    if premium_z_coverage < 90:
+        raise RuntimeError(f"Insufficient causal premium-z coverage: {premium_z_coverage:.2f}%")
+    if positioning_z_coverage < 90:
+        raise RuntimeError(f"Insufficient causal positioning-z coverage: {positioning_z_coverage:.2f}%")
 
     engine = OperationalBacktest(
         fee_bps_per_side=float(os.getenv("BACKTEST_FEE_BPS_PER_SIDE", "4")),
@@ -264,7 +288,7 @@ def main():
     results.to_csv(out / "results.csv", index=False)
 
     manifest = {
-        "source": "Binance Data Vision + official Binance funding snapshot + Binance premium index",
+        "source": "Binance Data Vision + official Binance funding snapshot + Binance premium-index Data Vision",
         "market": "USD-M Futures",
         "symbol": symbol,
         "start_utc": start.isoformat(),
@@ -282,11 +306,13 @@ def main():
         "cvd": "Derived from Binance USD-M 15m kline volume and taker_buy_base",
         "cvd_rule": "LONG CVD EMA12 > EMA26; SHORT CVD EMA12 < EMA26",
         "cvd_coverage_pct": cvd_coverage,
-        "premium_rule": "LONG premium_close <= 0; SHORT premium_close >= 0; closed premium bars only",
+        "premium_rule": "closed 15m premium; LONG causal premium z <= 0; SHORT >= 0; 96-bar prior window",
         "premium_coverage_pct": premium_coverage,
+        "premium_z_coverage_pct": premium_z_coverage,
         "positioning": "Data Vision global/top-account/top-position long-short ratios",
-        "positioning_rule": "anti-crowding around geometric-average neutral ratio 1.0",
+        "positioning_rule": "log-ratio pressure vs causal 96-bar prior distribution; LONG z <= 0; SHORT z >= 0",
         "positioning_coverage_pct": positioning_coverage,
+        "positioning_z_coverage_pct": positioning_z_coverage,
         "leverage_stress_rule": "LONG stress <= 0; SHORT stress >= 0; sign only, no tuned threshold",
         "leverage_stress_coverage_pct": stress_coverage,
         "fee_bps_per_side": engine.fee_bps_per_side,
