@@ -39,7 +39,38 @@ jobs:
             tests/test_binance_historical_collector.py \
             tests/test_binance_funding_rate.py \
             tests/test_cvd.py \
+            tests/test_order_book_liquidity.py \
             tests/test_operational_backtest.py
+
+  live-order-book-smoke:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Capture one live USD-M order-book snapshot
+        env:
+          ORDER_BOOK_SYMBOL: ETHUSDT
+          ORDER_BOOK_API_LIMIT: "100"
+          ORDER_BOOK_DEPTH_LEVELS: "50"
+          ORDER_BOOK_MAX_SPREAD_BPS: "5"
+        run: python collect_order_book_snapshot.py | tee order-book-smoke.txt
+      - name: Preserve liquidity snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: order-book-smoke-${{ github.run_number }}
+          path: |
+            research_snapshots/order_book/
+            order-book-smoke.txt
+          if-no-files-found: error
+          retention-days: 30
 
   operational-benchmark:
     needs: deterministic-tests
