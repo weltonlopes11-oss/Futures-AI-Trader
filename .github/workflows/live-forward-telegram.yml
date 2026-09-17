@@ -36,7 +36,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          MARKET_DATA_COLLECTOR_URL: ${{ secrets.MARKET_DATA_COLLECTOR_URL }}
+          MARKET_DATA_COLLECTOR_URL: https://futures-ai-trader.vercel.app/api/klines
           MARKET_DATA_COLLECTOR_KEY: ${{ secrets.MARKET_DATA_COLLECTOR_KEY }}
           FORWARD_START_UTC: '2026-09-17T00:00:00Z'
           FORWARD_END_UTC: '2026-10-17T23:59:59Z'
