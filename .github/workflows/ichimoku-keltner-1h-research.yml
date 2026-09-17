@@ -1,0 +1,49 @@
+name: Ichimoku Keltner 1H Research
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_EVAL_START_UTC: "2026-06-17T00:00:00Z"
+  BACKTEST_EVAL_END_UTC: "2026-09-15T00:00:00Z"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+
+jobs:
+  ichimoku-keltner-1h:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Test causal strategy rules
+        run: python -m pytest -q tests/test_ichimoku_keltner_1h.py
+      - name: Run 90-day 1h benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_ichimoku_keltner_1h_backtest.py | tee ichimoku-keltner-1h.txt
+      - name: Preserve benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ichimoku-keltner-1h-${{ github.run_number }}
+          path: |
+            artifacts/ichimoku-keltner-1h/
+            ichimoku-keltner-1h.txt
+          if-no-files-found: error
+          retention-days: 30
