@@ -111,3 +111,37 @@ jobs:
             daily-regime-trade-investigation.txt
           if-no-files-found: error
           retention-days: 30
+
+  ichimoku-keltner-1h:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BACKTEST_EVAL_START_UTC: "2026-06-17T00:00:00Z"
+      BACKTEST_EVAL_END_UTC: "2026-09-15T00:00:00Z"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Test causal 1h Ichimoku Keltner rules
+        run: python -m pytest -q tests/test_ichimoku_keltner_1h.py
+      - name: Run 90-day 1h Ichimoku Keltner benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_ichimoku_keltner_1h_backtest.py | tee ichimoku-keltner-1h.txt
+      - name: Preserve 1h benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ichimoku-keltner-1h-${{ github.run_number }}
+          path: |
+            artifacts/ichimoku-keltner-1h/
+            ichimoku-keltner-1h.txt
+          if-no-files-found: error
+          retention-days: 30
