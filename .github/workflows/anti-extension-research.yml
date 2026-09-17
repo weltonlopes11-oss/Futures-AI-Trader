@@ -135,13 +135,20 @@ jobs:
         run: |
           set -euo pipefail
           python run_ichimoku_keltner_1h_backtest.py | tee ichimoku-keltner-1h.txt
-      - name: Preserve 1h benchmark
+      - name: Run preregistered 2 ATR protective-stop benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_ichimoku_keltner_1h_stop_backtest.py | tee ichimoku-keltner-1h-stop.txt
+      - name: Preserve 1h benchmarks
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ichimoku-keltner-1h-${{ github.run_number }}
           path: |
             artifacts/ichimoku-keltner-1h/
+            artifacts/ichimoku-keltner-1h-stop/
             ichimoku-keltner-1h.txt
+            ichimoku-keltner-1h-stop.txt
           if-no-files-found: error
           retention-days: 30
