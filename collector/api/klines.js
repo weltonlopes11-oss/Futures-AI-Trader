@@ -44,17 +44,13 @@ async function fetchFromBinance(endpoint, symbol, interval, limit) {
     });
 
     const contentType = response.headers.get('content-type') || '';
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     if (!contentType.toLowerCase().includes('application/json')) {
       throw new Error(`invalid content-type ${contentType || 'missing'}`);
     }
 
     const payload = await response.json();
-    if (!validateKlines(payload)) {
-      throw new Error('invalid kline payload');
-    }
+    if (!validateKlines(payload)) throw new Error('invalid kline payload');
     return payload;
   } finally {
     clearTimeout(timeout);
@@ -68,11 +64,13 @@ export default async function handler(req, res) {
   }
 
   const expectedKey = process.env.COLLECTOR_API_KEY;
-  if (expectedKey) {
-    const suppliedKey = req.headers['x-collector-key'];
-    if (suppliedKey !== expectedKey) {
-      return res.status(401).json({ error: 'unauthorized' });
-    }
+  if (!expectedKey) {
+    console.error('COLLECTOR_API_KEY is not configured');
+    return res.status(503).json({ error: 'collector_not_configured' });
+  }
+  const suppliedKey = req.headers['x-collector-key'];
+  if (suppliedKey !== expectedKey) {
+    return res.status(401).json({ error: 'unauthorized' });
   }
 
   const symbol = String(req.query.symbol || 'ETHUSDT').toUpperCase();
