@@ -12,6 +12,8 @@ from backtest.ichimoku_keltner_1h import IchimokuKeltner1HConfig, enrich_indicat
 from run_ichimoku_keltner_1h_stop_backtest import STOP_ATR_MULTIPLIER, run_stop_window
 
 PIVOT_SPAN = 3
+CONTROL_EXPECTED_TRADES = 22
+CONTROL_EXPECTED_NET_RETURN_PCT = 2.081194239
 
 
 def add_causal_swings(data: pd.DataFrame, span: int = PIVOT_SPAN) -> pd.DataFrame:
@@ -54,8 +56,6 @@ def run_variant(data, eval_start, eval_end, cfg, mode: str) -> pd.DataFrame:
         ts = pd.Timestamp(row["timestamp"])
         in_eval = start <= ts < end
 
-        # Structural invalidation is observed only on a completed close and
-        # executed at the next bar open. The hard 2ATR stop remains intrabar.
         if position is not None and pending_structural_exit and in_eval:
             exit_price = float(row["open"])
             side = position["side"]
@@ -106,8 +106,6 @@ def run_variant(data, eval_start, eval_end, cfg, mode: str) -> pd.DataFrame:
                 position = None
                 pending_structural_exit = False
 
-        # Evaluate structural thesis only after this bar closes. Never allow a
-        # same-bar close rule to outrank an intrabar hard stop/target.
         if position is not None and in_eval and i + 1 < len(enriched):
             next_ts = pd.Timestamp(enriched.iloc[i + 1]["timestamp"])
             if next_ts < end:
@@ -152,7 +150,7 @@ def main():
     kijun = run_variant(data, eval_start, eval_end, cfg, "kijun")
     swing = run_variant(data, eval_start, eval_end, cfg, "swing")
     cm = metrics(control)
-    if int(cm["trades"]) != 22 or abs(float(cm["net_return_pct"]) - 2.080734752999078) > 1e-9:
+    if int(cm["trades"]) != CONTROL_EXPECTED_TRADES or abs(float(cm["net_return_pct"]) - CONTROL_EXPECTED_NET_RETURN_PCT) > 1e-9:
         raise AssertionError(f"2ATR control regression failed: {cm}")
 
     result = {
