@@ -1,0 +1,17 @@
+{
+  "status": "PENDING_FIRST_RUN",
+  "checked_at_utc": null,
+  "last_success_utc": null,
+  "symbol": "ETHUSDT",
+  "interval": "1h",
+  "protocol_sha256": "359b92e6024c0b3350775e53281c783cbcbaf68e030f3fc1139e7df580fce203",
+  "latest_market_open_ms": null,
+  "equity_brl": 500.0,
+  "trade_count": 0,
+  "position": null,
+  "pending_side": null,
+  "kill_switch_active": false,
+  "notification_backlog": 0,
+  "ledger_backlog": 0,
+  "error": null
+}
