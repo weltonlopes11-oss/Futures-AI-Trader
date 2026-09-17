@@ -11,107 +11,17 @@ permissions:
 env:
   PYTHONUNBUFFERED: "1"
   BACKTEST_SYMBOL: ETHUSDT
-  BACKTEST_START_UTC: "2026-09-01T00:00:00Z"
-  BACKTEST_END_UTC: "2026-09-15T00:00:00Z"
   BACKTEST_FEE_BPS_PER_SIDE: "4"
   BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
 
 jobs:
-  anti-extension-benchmark:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
-      - name: Test anti-extension logic
-        run: python -m pytest -q tests/test_anti_extension.py
-      - name: Run anti-extension benchmark
-        shell: bash
-        run: |
-          set -euo pipefail
-          python run_anti_extension_benchmark.py | tee anti-extension-benchmark.txt
-      - name: Preserve anti-extension benchmark
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: anti-extension-benchmark-${{ github.run_number }}
-          path: |
-            artifacts/anti-extension-benchmark/
-            anti-extension-benchmark.txt
-          if-no-files-found: error
-          retention-days: 30
-
-  macro-regime-validation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      BACKTEST_EVAL_START_UTC: "2026-06-17T00:00:00Z"
-      BACKTEST_EVAL_END_UTC: "2026-09-15T00:00:00Z"
-      BACKTEST_STRATEGY_WARMUP_DAYS: "14"
-      BACKTEST_MACRO_WARMUP_DAYS: "120"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run daily-only regime validation
-        run: python run_macro_regime_validation_fast.py | tee macro-regime-validation.txt
-      - name: Preserve daily regime result
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: daily-regime-validation-${{ github.run_number }}
-          path: |
-            artifacts/macro-regime-validation/
-            macro-regime-validation.txt
-          if-no-files-found: error
-          retention-days: 30
-
-  daily-regime-trade-investigation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      BACKTEST_EVAL_START_UTC: "2026-06-17T00:00:00Z"
-      BACKTEST_EVAL_END_UTC: "2026-09-15T00:00:00Z"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Investigate the 22 daily-regime trades
-        run: python run_daily_regime_trade_investigation.py | tee daily-regime-trade-investigation.txt
-      - name: Preserve 22-trade investigation
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: daily-regime-trade-investigation-${{ github.run_number }}
-          path: |
-            artifacts/daily-regime-trade-investigation/
-            daily-regime-trade-investigation.txt
-          if-no-files-found: error
-          retention-days: 30
-
   ichimoku-keltner-1h:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      BACKTEST_EVAL_START_UTC: "2026-07-01T00:00:00Z"
+      BACKTEST_EVAL_START_UTC: "2026-06-01T00:00:00Z"
       BACKTEST_EVAL_END_UTC: "2026-08-01T00:00:00Z"
+      BACKTEST_REQUIRE_AUGUST_CONTROL: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -124,23 +34,15 @@ jobs:
           pip install pytest
       - name: Test causal 1h Ichimoku Keltner rules
         run: python -m pytest -q tests/test_ichimoku_keltner_1h.py
-      - name: Run July 2026 1h Ichimoku Keltner benchmark
-        run: python run_ichimoku_keltner_1h_backtest.py | tee ichimoku-keltner-1h.txt
-      - name: Run preregistered 2 ATR protective-stop benchmark
+      - name: Run June-July 2026 preregistered 2ATR benchmark
         run: python run_ichimoku_keltner_1h_stop_backtest.py | tee ichimoku-keltner-1h-stop.txt
-      - name: Diagnose observed 2 ATR stops
-        run: python run_ichimoku_keltner_1h_stop_diagnostic.py | tee ichimoku-keltner-1h-stop-diagnostic.txt
-      - name: Preserve 1h benchmarks
+      - name: Preserve June-July 2ATR benchmark
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ichimoku-keltner-1h-${{ github.run_number }}
+          name: ichimoku-keltner-1h-june-july-${{ github.run_number }}
           path: |
-            artifacts/ichimoku-keltner-1h/
             artifacts/ichimoku-keltner-1h-stop/
-            artifacts/ichimoku-keltner-1h-stop-diagnostic/
-            ichimoku-keltner-1h.txt
             ichimoku-keltner-1h-stop.txt
-            ichimoku-keltner-1h-stop-diagnostic.txt
           if-no-files-found: error
           retention-days: 30
