@@ -66,10 +66,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run daily-only regime validation
-        shell: bash
-        run: |
-          set -euo pipefail
-          python run_macro_regime_validation_fast.py | tee macro-regime-validation.txt
+        run: python run_macro_regime_validation_fast.py | tee macro-regime-validation.txt
       - name: Preserve daily regime result
         if: always()
         uses: actions/upload-artifact@v4
@@ -97,10 +94,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Investigate the 22 daily-regime trades
-        shell: bash
-        run: |
-          set -euo pipefail
-          python run_daily_regime_trade_investigation.py | tee daily-regime-trade-investigation.txt
+        run: python run_daily_regime_trade_investigation.py | tee daily-regime-trade-investigation.txt
       - name: Preserve 22-trade investigation
         if: always()
         uses: actions/upload-artifact@v4
@@ -131,20 +125,13 @@ jobs:
       - name: Test causal 1h Ichimoku Keltner rules
         run: python -m pytest -q tests/test_ichimoku_keltner_1h.py
       - name: Run August 2026 1h Ichimoku Keltner benchmark
-        shell: bash
-        run: |
-          set -euo pipefail
-          python run_ichimoku_keltner_1h_backtest.py | tee ichimoku-keltner-1h.txt
+        run: python run_ichimoku_keltner_1h_backtest.py | tee ichimoku-keltner-1h.txt
       - name: Run preregistered 2 ATR protective-stop benchmark
-        shell: bash
-        run: |
-          set -euo pipefail
-          python run_ichimoku_keltner_1h_stop_backtest.py | tee ichimoku-keltner-1h-stop.txt
+        run: python run_ichimoku_keltner_1h_stop_backtest.py | tee ichimoku-keltner-1h-stop.txt
       - name: Diagnose the 11 observed 2 ATR stops
-        shell: bash
-        run: |
-          set -euo pipefail
-          python run_ichimoku_keltner_1h_stop_diagnostic.py | tee ichimoku-keltner-1h-stop-diagnostic.txt
+        run: python run_ichimoku_keltner_1h_stop_diagnostic.py | tee ichimoku-keltner-1h-stop-diagnostic.txt
+      - name: Benchmark Kijun and causal swing invalidation with 2ATR emergency stop
+        run: python run_ichimoku_keltner_1h_structural_stop_benchmark.py | tee ichimoku-keltner-1h-structural-stop.txt
       - name: Preserve 1h benchmarks
         if: always()
         uses: actions/upload-artifact@v4
@@ -154,8 +141,10 @@ jobs:
             artifacts/ichimoku-keltner-1h/
             artifacts/ichimoku-keltner-1h-stop/
             artifacts/ichimoku-keltner-1h-stop-diagnostic/
+            artifacts/ichimoku-keltner-1h-structural-stop/
             ichimoku-keltner-1h.txt
             ichimoku-keltner-1h-stop.txt
             ichimoku-keltner-1h-stop-diagnostic.txt
+            ichimoku-keltner-1h-structural-stop.txt
           if-no-files-found: error
           retention-days: 30
