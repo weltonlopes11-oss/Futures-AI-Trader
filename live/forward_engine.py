@@ -13,6 +13,7 @@ import pandas as pd
 
 from backtest.ichimoku_keltner_1h import IchimokuKeltner1HConfig, enrich_indicators
 
+# USDⓈ-M Futures only. Never fall back to Spot: doing so would change the frozen strategy's market data.
 BINANCE_KLINE_ENDPOINTS = (
     "https://fapi.binance.com/fapi/v1/klines",
     "https://fapi1.binance.com/fapi/v1/klines",
@@ -61,10 +62,24 @@ def telegram(text: str) -> None:
             raise RuntimeError(f"Telegram HTTP {response.status}")
 
 
+def _validated_json_array(payload: bytes, endpoint: str) -> list:
+    if not payload.strip():
+        raise RuntimeError(f"empty response from {urllib.parse.urlparse(endpoint).netloc}")
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"non-JSON response from {urllib.parse.urlparse(endpoint).netloc}") from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise RuntimeError(f"unexpected response from {urllib.parse.urlparse(endpoint).netloc}")
+    if not isinstance(parsed[0], list) or len(parsed[0]) < 7:
+        raise RuntimeError(f"invalid kline schema from {urllib.parse.urlparse(endpoint).netloc}")
+    return parsed
+
+
 def fetch_klines(limit: int = 200) -> pd.DataFrame:
     query = urllib.parse.urlencode({"symbol": SYMBOL, "interval": INTERVAL, "limit": limit})
     errors: list[str] = []
-    raw = None
+    raw: list | None = None
     for endpoint in BINANCE_KLINE_ENDPOINTS:
         try:
             req = urllib.request.Request(
@@ -72,15 +87,14 @@ def fetch_klines(limit: int = 200) -> pd.DataFrame:
                 headers={"User-Agent": "Futures-AI-Trader/1.0", "Accept": "application/json"},
             )
             with urllib.request.urlopen(req, timeout=20) as response:
-                raw = json.loads(response.read())
-            if not isinstance(raw, list):
-                raise RuntimeError("unexpected Binance response")
+                payload = response.read()
+            raw = _validated_json_array(payload, endpoint)
             break
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, RuntimeError) as exc:
             code = getattr(exc, "code", "network")
-            errors.append(f"{urllib.parse.urlparse(endpoint).netloc}:{code}")
+            errors.append(f"{urllib.parse.urlparse(endpoint).netloc}:{code}:{type(exc).__name__}")
     if raw is None:
-        raise RuntimeError("All Binance Futures market-data endpoints failed: " + ", ".join(errors))
+        raise RuntimeError("All Binance USD-M Futures endpoints failed: " + ", ".join(errors))
 
     rows = []
     for k in raw:
