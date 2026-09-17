@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -12,13 +11,8 @@ from pathlib import Path
 import pandas as pd
 
 from backtest.ichimoku_keltner_1h import IchimokuKeltner1HConfig, enrich_indicators
+from live.market_data import fetch_klines
 
-# USDⓈ-M Futures only. Never fall back to Spot: doing so would change the frozen strategy's market data.
-BINANCE_KLINE_ENDPOINTS = (
-    "https://fapi.binance.com/fapi/v1/klines",
-    "https://fapi1.binance.com/fapi/v1/klines",
-    "https://fapi2.binance.com/fapi/v1/klines",
-)
 STATE_PATH = Path(os.getenv("FORWARD_STATE_PATH", "live/state.json"))
 SYMBOL = "ETHUSDT"
 INTERVAL = "1h"
@@ -62,51 +56,6 @@ def telegram(text: str) -> None:
             raise RuntimeError(f"Telegram HTTP {response.status}")
 
 
-def _validated_json_array(payload: bytes, endpoint: str) -> list:
-    if not payload.strip():
-        raise RuntimeError(f"empty response from {urllib.parse.urlparse(endpoint).netloc}")
-    try:
-        parsed = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"non-JSON response from {urllib.parse.urlparse(endpoint).netloc}") from exc
-    if not isinstance(parsed, list) or not parsed:
-        raise RuntimeError(f"unexpected response from {urllib.parse.urlparse(endpoint).netloc}")
-    if not isinstance(parsed[0], list) or len(parsed[0]) < 7:
-        raise RuntimeError(f"invalid kline schema from {urllib.parse.urlparse(endpoint).netloc}")
-    return parsed
-
-
-def fetch_klines(limit: int = 200) -> pd.DataFrame:
-    query = urllib.parse.urlencode({"symbol": SYMBOL, "interval": INTERVAL, "limit": limit})
-    errors: list[str] = []
-    raw: list | None = None
-    for endpoint in BINANCE_KLINE_ENDPOINTS:
-        try:
-            req = urllib.request.Request(
-                f"{endpoint}?{query}",
-                headers={"User-Agent": "Futures-AI-Trader/1.0", "Accept": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=20) as response:
-                payload = response.read()
-            raw = _validated_json_array(payload, endpoint)
-            break
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, RuntimeError) as exc:
-            code = getattr(exc, "code", "network")
-            errors.append(f"{urllib.parse.urlparse(endpoint).netloc}:{code}:{type(exc).__name__}")
-    if raw is None:
-        raise RuntimeError("All Binance USD-M Futures endpoints failed: " + ", ".join(errors))
-
-    rows = []
-    for k in raw:
-        rows.append({
-            "open_time_ms": int(k[0]),
-            "timestamp": pd.to_datetime(int(k[0]), unit="ms", utc=True).tz_localize(None),
-            "open": float(k[1]), "high": float(k[2]), "low": float(k[3]), "close": float(k[4]),
-            "close_time_ms": int(k[6]),
-        })
-    return pd.DataFrame(rows)
-
-
 def net_return_pct(side: str, entry: float, exit_price: float, cfg: IchimokuKeltner1HConfig) -> float:
     gross = (exit_price / entry - 1.0) if side == "LONG" else (entry / exit_price - 1.0)
     cost = 2.0 * (cfg.fee_bps_per_side + cfg.slippage_bps_per_side) / 10000.0
@@ -144,25 +93,42 @@ def main() -> None:
             atr = float(data.iloc[i - 1]["keltner_atr"])
             entry = float(row["open"])
             stop = entry - 2.0 * atr if state.pending_side == "LONG" else entry + 2.0 * atr
-            state.position = {"side": state.pending_side, "entry_time": ts.isoformat(), "entry_price": entry,
-                              "entry_atr": atr, "stop_price": stop, "signal_time": state.pending_signal_time,
-                              "entry_equity_brl": state.equity_brl}
-            telegram(f"ENTRADA {state.pending_side}\nETHUSDT 1H\nEntrada: {entry:.2f}\nATR20: {atr:.2f}\nStop 2ATR: {stop:.2f}\nExposição paper: R$ {state.equity_brl*LEVERAGE:,.2f}\nPatrimônio: R$ {state.equity_brl:,.2f}")
+            state.position = {
+                "side": state.pending_side,
+                "entry_time": ts.isoformat(),
+                "entry_price": entry,
+                "entry_atr": atr,
+                "stop_price": stop,
+                "signal_time": state.pending_signal_time,
+                "entry_equity_brl": state.equity_brl,
+            }
+            telegram(
+                f"ENTRADA {state.pending_side}\nETHUSDT 1H\nEntrada: {entry:.2f}\nATR20: {atr:.2f}\n"
+                f"Stop 2ATR: {stop:.2f}\nExposição paper: R$ {state.equity_brl * LEVERAGE:,.2f}\n"
+                f"Patrimônio: R$ {state.equity_brl:,.2f}"
+            )
             state.pending_side = None
             state.pending_signal_time = None
 
         if state.position is not None:
-            p = state.position; side = p["side"]; stop = float(p["stop_price"])
+            p = state.position
+            side = p["side"]
+            stop = float(p["stop_price"])
             o, h, l = float(row["open"]), float(row["high"]), float(row["low"])
-            exit_price = None; reason = None
+            exit_price = None
+            reason = None
             if side == "LONG":
                 target = row["executable_keltner_upper"]
-                if l <= stop: exit_price, reason = min(o, stop), "STOP 2ATR"
-                elif pd.notna(target) and h >= float(target): exit_price, reason = max(o, float(target)), "KELTNER SUPERIOR 3.0"
+                if l <= stop:
+                    exit_price, reason = min(o, stop), "STOP 2ATR"
+                elif pd.notna(target) and h >= float(target):
+                    exit_price, reason = max(o, float(target)), "KELTNER SUPERIOR 3.0"
             else:
                 target = row["executable_keltner_lower"]
-                if h >= stop: exit_price, reason = max(o, stop), "STOP 2ATR"
-                elif pd.notna(target) and l <= float(target): exit_price, reason = min(o, float(target)), "KELTNER INFERIOR 3.0"
+                if h >= stop:
+                    exit_price, reason = max(o, stop), "STOP 2ATR"
+                elif pd.notna(target) and l <= float(target):
+                    exit_price, reason = min(o, float(target)), "KELTNER INFERIOR 3.0"
             if exit_price is not None:
                 ret = net_return_pct(side, float(p["entry_price"]), float(exit_price), cfg)
                 pnl = state.equity_brl * LEVERAGE * ret / 100.0
@@ -171,7 +137,12 @@ def main() -> None:
                 dd = (state.equity_brl / state.peak_equity_brl - 1.0) * 100.0
                 state.max_drawdown_pct = min(state.max_drawdown_pct, dd)
                 state.trade_count += 1
-                telegram(f"SAÍDA {side}\nMotivo: {reason}\nSaída: {exit_price:.2f}\nRetorno ativo líquido: {ret:+.3f}%\nResultado 10x: R$ {pnl:+,.2f}\nPatrimônio: R$ {state.equity_brl:,.2f}\nDD atual: {dd:.2f}%\nDD máximo: {state.max_drawdown_pct:.2f}%\nTrades: {state.trade_count}")
+                telegram(
+                    f"SAÍDA {side}\nMotivo: {reason}\nSaída: {exit_price:.2f}\n"
+                    f"Retorno ativo líquido: {ret:+.3f}%\nResultado 10x: R$ {pnl:+,.2f}\n"
+                    f"Patrimônio: R$ {state.equity_brl:,.2f}\nDD atual: {dd:.2f}%\n"
+                    f"DD máximo: {state.max_drawdown_pct:.2f}%\nTrades: {state.trade_count}"
+                )
                 state.position = None
 
         if state.position is None and state.pending_side is None:
