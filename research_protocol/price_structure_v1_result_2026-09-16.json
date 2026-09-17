@@ -1,0 +1,99 @@
+{
+  "experiment": "price-structure-v1",
+  "date": "2026-09-16",
+  "workflow_run": 74,
+  "evaluation_window": "2026-09-01T00:00:00Z/2026-09-15T00:00:00Z",
+  "costs": {
+    "fee_bps_per_side": 4,
+    "slippage_bps_per_side": 1
+  },
+  "parameters": {
+    "pivot_span": 3,
+    "pivot_confirmation_delay_minutes": 45,
+    "double_tolerance_atr": 0.25,
+    "double_min_separation_bars": 4
+  },
+  "diagnostics": {
+    "confirmed_pivot_highs": 128,
+    "confirmed_pivot_lows": 139,
+    "HH": 64,
+    "LH": 63,
+    "HL": 73,
+    "LL": 65,
+    "bos_up": 51,
+    "bos_down": 63,
+    "choch_up": 14,
+    "choch_down": 28,
+    "double_top": 22,
+    "double_bottom": 17
+  },
+  "reference_rr": 2.0,
+  "reference_control": {
+    "entry_mode": "control",
+    "exit_mode": "five_bar",
+    "trades": 6,
+    "net_return_pct": 0.314950,
+    "profit_factor": 1.333220,
+    "expectancy_pct": 0.053123,
+    "max_drawdown_pct": -0.632173,
+    "win_rate_pct": 50.0,
+    "long": 3,
+    "short": 3
+  },
+  "rr2_entry_results": {
+    "swing_label_alignment": {
+      "trades": 6,
+      "net_return_pct": 0.314950,
+      "profit_factor": 1.333220,
+      "expectancy_pct": 0.053123,
+      "result": "no incremental effect"
+    },
+    "structure_regime": {
+      "trades": 1,
+      "net_return_pct": 0.402094,
+      "profit_factor": "inf",
+      "expectancy_pct": 0.402094,
+      "result": "too sparse for inference"
+    },
+    "bos_choch_event": {
+      "trades": 1,
+      "net_return_pct": 0.368931,
+      "profit_factor": "inf",
+      "expectancy_pct": 0.368931,
+      "result": "too sparse for inference"
+    },
+    "double_reversal_event": {
+      "trades": 0,
+      "net_return_pct": 0.0,
+      "profit_factor": 0.0,
+      "expectancy_pct": 0.0,
+      "result": "no qualifying trades"
+    },
+    "any_structural_confirmation": {
+      "trades": 1,
+      "net_return_pct": 0.402094,
+      "profit_factor": "inf",
+      "expectancy_pct": 0.402094,
+      "result": "too sparse for inference"
+    }
+  },
+  "rr2_exit_result": {
+    "entry_mode": "control",
+    "exit_mode": "confirmed_pivot_invalidation",
+    "trades": 6,
+    "net_return_pct": 0.314950,
+    "profit_factor": 1.333220,
+    "expectancy_pct": 0.053123,
+    "max_drawdown_pct": -0.632173,
+    "result": "identical to five-bar control in this window"
+  },
+  "decision": {
+    "promote_swing_label_hard_filter": false,
+    "promote_structure_regime_hard_filter": false,
+    "promote_bos_choch_hard_filter": false,
+    "promote_double_top_bottom_hard_filter": false,
+    "promote_pivot_exit": false,
+    "keep_as_features": true,
+    "next_research": "attach structural state to every trade and analyze MFE/MAE, winners vs losers, and conditional expectancy without hard filtering"
+  }
+}

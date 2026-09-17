@@ -1,0 +1,24 @@
+{
+  "version": "exit-v1-2026-09-16",
+  "status": "frozen-research-candidate",
+  "entry_stack": "frozen core + Keltner battery 1",
+  "base_exit": {
+    "stop": "1 ATR from entry",
+    "target": "fixed R multiple"
+  },
+  "structural_early_exit": {
+    "timeframe": "15m",
+    "lookback_bars": 5,
+    "horizon_minutes": 75,
+    "long_rule": "exit at candle close when close < lowest low of prior 5 completed bars",
+    "short_rule": "exit at candle close when close > highest high of prior 5 completed bars",
+    "current_bar_excluded": true,
+    "priority": "stop/target evaluated first intrabar; structural exit evaluated second at candle close"
+  },
+  "execution": {
+    "signal_entry": "t+1 open",
+    "fee_bps_per_side": 4,
+    "slippage_bps_per_side": 1
+  },
+  "anti_overfit": "Parameters are frozen before further validation. Do not change lookback based on the 2026-09-01 to 2026-09-15 PnL result."
+}

@@ -1,0 +1,49 @@
+name: Exit Variants Research
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_START_UTC: "2026-09-01T00:00:00Z"
+  BACKTEST_END_UTC: "2026-09-15T00:00:00Z"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+
+jobs:
+  exit-variants-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Test exit variant logic
+        run: python -m pytest -q tests/test_exit_variants_backtest.py
+      - name: Run exit variants benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_exit_variants_benchmark.py | tee exit-variants-benchmark.txt
+      - name: Preserve exit variants benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-variants-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/exit-variants-benchmark/
+            exit-variants-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30

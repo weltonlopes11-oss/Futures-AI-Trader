@@ -1,0 +1,64 @@
+{
+  "experiment": "quality-management-v1",
+  "date": "2026-09-16",
+  "workflow_run": 68,
+  "evaluation_window": "2026-09-01T00:00:00Z/2026-09-15T00:00:00Z",
+  "costs": {
+    "fee_bps_per_side": 4,
+    "slippage_bps_per_side": 1
+  },
+  "reference_rr": 2.0,
+  "reference_control": {
+    "mode": "control_keltner_structure",
+    "trades": 6,
+    "win_rate_pct": 50.0,
+    "net_return_pct": 0.314950,
+    "profit_factor": 1.333220,
+    "expectancy_pct": 0.053123,
+    "max_drawdown_pct": -0.632173,
+    "long": 3,
+    "short": 3,
+    "structure_exits": 1
+  },
+  "entry_quality_candidate": {
+    "mode": "quality_entry_structure",
+    "trades": 6,
+    "win_rate_pct": 50.0,
+    "net_return_pct": 0.314950,
+    "profit_factor": 1.333220,
+    "expectancy_pct": 0.053123,
+    "max_drawdown_pct": -0.632173,
+    "long": 3,
+    "short": 3,
+    "result": "no incremental effect at 2R; worse at 1R and 1.5R"
+  },
+  "managed_exit_candidate": {
+    "mode": "keltner_managed_exit",
+    "trades": 6,
+    "win_rate_pct": 33.333333,
+    "net_return_pct": -0.212302,
+    "profit_factor": 0.800138,
+    "expectancy_pct": -0.034860,
+    "max_drawdown_pct": -0.632173,
+    "long": 3,
+    "short": 3,
+    "structure_exits": 1,
+    "breakeven_exits": 1,
+    "keltner_middle_exits": 0,
+    "result": "rejected; break-even management damaged 2R expectancy and net return"
+  },
+  "combined_candidate": {
+    "mode": "quality_entry_managed_exit",
+    "trades": 6,
+    "net_return_pct": -0.212302,
+    "profit_factor": 0.800138,
+    "expectancy_pct": -0.034860,
+    "result": "rejected"
+  },
+  "decision": {
+    "promote_entry_quality_score": false,
+    "promote_managed_exit": false,
+    "keep_current_candidate": "frozen core + Keltner entry + adverse 5-bar structural exit + fixed ATR stop/target",
+    "next_research": "trade-level diagnostics using MFE/MAE and entry-state feature attribution before adding new hard filters or exit rules"
+  }
+}

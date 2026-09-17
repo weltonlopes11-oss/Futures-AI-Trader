@@ -1,0 +1,47 @@
+name: Frozen Candidate 90D Validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_EVAL_START_UTC: "2026-06-17T00:00:00Z"
+  BACKTEST_EVAL_END_UTC: "2026-09-15T00:00:00Z"
+  BACKTEST_WARMUP_DAYS: "14"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+
+jobs:
+  frozen-candidate-90d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run frozen 90d validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_90d_frozen_candidate.py | tee frozen-candidate-90d.txt
+      - name: Preserve frozen 90d result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-candidate-90d-${{ github.run_number }}
+          path: |
+            artifacts/frozen-candidate-90d/
+            frozen-candidate-90d.txt
+          if-no-files-found: error
+          retention-days: 30

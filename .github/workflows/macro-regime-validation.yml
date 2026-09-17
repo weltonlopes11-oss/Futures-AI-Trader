@@ -1,0 +1,43 @@
+name: Macro Regime Validation
+
+on:
+  push:
+    branches:
+      - feature/binance-multitimeframe
+  workflow_dispatch:
+
+jobs:
+  macro-regime-validation:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+      BACKTEST_SYMBOL: ETHUSDT
+      BACKTEST_EVAL_START_UTC: 2026-06-17T00:00:00Z
+      BACKTEST_EVAL_END_UTC: 2026-09-15T00:00:00Z
+      BACKTEST_STRATEGY_WARMUP_DAYS: "14"
+      BACKTEST_MACRO_WARMUP_DAYS: "420"
+      BACKTEST_FEE_BPS_PER_SIDE: "4"
+      BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run macro regime validation
+        run: |
+          set -euo pipefail
+          python run_macro_regime_validation.py | tee macro-regime-validation.txt
+      - name: Preserve macro regime result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macro-regime-validation-${{ github.run_number }}
+          path: |
+            artifacts/macro-regime-validation/
+            macro-regime-validation.txt
+          if-no-files-found: error
+          retention-days: 30

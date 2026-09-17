@@ -1,0 +1,53 @@
+name: Leveraged Capital Backtest
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_START_UTC: "2026-09-01T00:00:00Z"
+  BACKTEST_END_UTC: "2026-09-15T00:00:00Z"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+  CAPITAL_INITIAL_BRL: "500"
+  CAPITAL_LEVERAGE: "10"
+  CAPITAL_MARGIN_FRACTION: "1"
+  CAPITAL_MAINTENANCE_MARGIN_RATE: "0.005"
+
+jobs:
+  leveraged-capital-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Test leveraged capital simulator
+        run: python -m pytest -q tests/test_leveraged_capital.py
+      - name: Run R$500 10x compounded backtest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_leveraged_capital_backtest.py | tee leveraged-capital-backtest.txt
+      - name: Preserve leveraged capital result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leveraged-capital-${{ github.run_number }}
+          path: |
+            artifacts/leveraged-capital-backtest/
+            leveraged-capital-backtest.txt
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,255 @@
+name: Binance Research Window
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_START_UTC: "2026-09-01T00:00:00Z"
+  BACKTEST_END_UTC: "2026-09-15T00:00:00Z"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+
+jobs:
+  deterministic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - run: |
+          python -m pytest -q \
+            tests/test_feature_engine_causality.py \
+            tests/test_open_interest_enricher.py \
+            tests/test_open_interest_statistics.py \
+            tests/test_oi_profit_analyzer.py \
+            tests/test_binance_historical_collector.py \
+            tests/test_binance_funding_rate.py \
+            tests/test_bybit_derivatives_history.py \
+            tests/test_cvd.py \
+            tests/test_order_book_liquidity.py \
+            tests/test_liquidity_signal_engine.py \
+            tests/test_crypto_native_context.py \
+            tests/test_graphical_context.py \
+            tests/test_operational_backtest.py \
+            tests/test_structural_exit_backtest.py \
+            tests/test_entry_quality_and_managed_exit.py \
+            tests/test_price_structure_patterns.py \
+            tests/test_trade_quality_analytics.py
+
+  live-order-book-smoke:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Capture one live USD-M order-book snapshot
+        env:
+          ORDER_BOOK_SYMBOL: ETHUSDT
+          ORDER_BOOK_API_LIMIT: "100"
+          ORDER_BOOK_DEPTH_LEVELS: "50"
+          ORDER_BOOK_MAX_SPREAD_BPS: "5"
+        run: python collect_order_book_snapshot.py | tee order-book-smoke.txt
+      - name: Preserve liquidity snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: order-book-smoke-${{ github.run_number }}
+          path: |
+            research_snapshots/order_book/
+            order-book-smoke.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  operational-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run operational net-return benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_operational_benchmark.py | tee operational-benchmark.txt
+      - name: Preserve trades and benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operational-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/operational-benchmark/
+            operational-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  graphical-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run frozen graphical batteries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_graphical_benchmark.py | tee graphical-benchmark.txt
+      - name: Preserve graphical benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graphical-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/graphical-benchmark/
+            graphical-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  structural-exit-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run frozen Keltner entries with structural exits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_structural_exit_benchmark.py | tee structural-exit-benchmark.txt
+      - name: Preserve structural exit benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structural-exit-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/structural-exit-benchmark/
+            structural-exit-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  quality-management-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run entry quality and managed exit matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_quality_management_benchmark.py | tee quality-management-benchmark.txt
+      - name: Preserve quality management benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-management-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/quality-management-benchmark/
+            quality-management-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  price-structure-benchmark:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run causal price structure benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_price_structure_benchmark.py | tee price-structure-benchmark.txt
+      - name: Preserve price structure benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: price-structure-benchmark-${{ github.run_number }}
+          path: |
+            artifacts/price-structure-benchmark/
+            price-structure-benchmark.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  trade-quality-analytics:
+    needs: deterministic-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run MFE MAE structural trade analytics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_trade_quality_analytics.py | tee trade-quality-analytics.txt
+      - name: Preserve trade quality analytics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trade-quality-analytics-${{ github.run_number }}
+          path: |
+            artifacts/trade-quality-analytics/
+            trade-quality-analytics.txt
+          if-no-files-found: error
+          retention-days: 30
