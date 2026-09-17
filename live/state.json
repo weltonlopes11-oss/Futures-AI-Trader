@@ -5,7 +5,10 @@
   "last_processed_open_ms": 1789678800000,
   "pending_side": null,
   "pending_signal_time": null,
+  "pending_signal_open_ms": null,
+  "pending_atr": null,
   "position": null,
   "trade_count": 0,
-  "initialized": true
+  "initialized": true,
+  "finalized": false
 }
