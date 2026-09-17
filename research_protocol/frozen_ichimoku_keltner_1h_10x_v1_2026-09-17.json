@@ -1,0 +1,51 @@
+{
+  "protocol_version": "1.0-frozen",
+  "frozen_at_utc": "2026-09-17",
+  "status": "FROZEN",
+  "strategy": "ETHUSDT 1H Ichimoku + Keltner + 2ATR",
+  "market": {
+    "symbol": "ETHUSDT",
+    "timeframe": "1h"
+  },
+  "entry": {
+    "ichimoku": {"tenkan": 9, "kijun": 26, "senkou_b": 52, "displacement": 26},
+    "long": "completed close crosses above chart-visible Leading Span A; enter next candle open",
+    "short": "completed close crosses below chart-visible Leading Span B; enter next candle open"
+  },
+  "target": {
+    "indicator": "Keltner Channel",
+    "ema_period": 20,
+    "atr_period": 20,
+    "atr_smoothing": "Wilder RMA",
+    "multiplier": 3.0,
+    "long": "previously-known upper Keltner touch",
+    "short": "previously-known lower Keltner touch"
+  },
+  "protective_stop": {
+    "multiplier_atr": 2.0,
+    "atr_period": 20,
+    "atr_information_time": "last fully completed 1h candle before entry",
+    "long": "entry - 2 ATR20",
+    "short": "entry + 2 ATR20",
+    "same_bar_target_and_stop": "STOP wins",
+    "gap_rule": "fill at candle open when open gaps beyond stop"
+  },
+  "execution": {
+    "one_position_at_a_time": true,
+    "signal_to_entry": "completed close t -> open t+1",
+    "fee_bps_per_side": 4.0,
+    "slippage_bps_per_side": 1.0,
+    "round_trip_cost_pct": 0.1
+  },
+  "capital_model": {
+    "initial_reference_brl": 500.0,
+    "leverage": 10.0,
+    "position_sizing": "fixed 10x exposure on current equity, reinvest operation by operation",
+    "note": "Backtest leverage model; exact exchange liquidation, maintenance margin and funding mechanics are not represented unless separately implemented."
+  },
+  "validated_windows": {
+    "2026-06-01_to_2026-08-01": {"trades": 31, "net_return_unlevered_pct": 13.603836371710232, "profit_factor": 1.6444884477095163, "max_drawdown_unlevered_pct": -8.302098077680487},
+    "2026-08-01_to_2026-09-01": {"trades": 22, "net_return_unlevered_pct": 2.0811942390375644, "profit_factor": 1.1450776312536906, "max_drawdown_unlevered_pct": -7.133676398630094}
+  },
+  "change_control": "Do not change entry, target, stop, costs, causality, leverage or position sizing silently. Any future modification must be tested as a separately named candidate against this frozen protocol."
+}
