@@ -140,6 +140,11 @@ jobs:
         run: |
           set -euo pipefail
           python run_ichimoku_keltner_1h_stop_backtest.py | tee ichimoku-keltner-1h-stop.txt
+      - name: Diagnose the 11 observed 2 ATR stops
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_ichimoku_keltner_1h_stop_diagnostic.py | tee ichimoku-keltner-1h-stop-diagnostic.txt
       - name: Preserve 1h benchmarks
         if: always()
         uses: actions/upload-artifact@v4
@@ -148,7 +153,9 @@ jobs:
           path: |
             artifacts/ichimoku-keltner-1h/
             artifacts/ichimoku-keltner-1h-stop/
+            artifacts/ichimoku-keltner-1h-stop-diagnostic/
             ichimoku-keltner-1h.txt
             ichimoku-keltner-1h-stop.txt
+            ichimoku-keltner-1h-stop-diagnostic.txt
           if-no-files-found: error
           retention-days: 30
