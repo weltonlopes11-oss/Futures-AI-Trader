@@ -1,0 +1,38 @@
+name: Forward Engine CI
+
+on:
+  pull_request:
+    paths:
+      - 'live/**'
+      - 'backtest/ichimoku_keltner_1h.py'
+      - 'research_protocol/frozen_ichimoku_keltner_1h_10x_v1_2026-09-17.json'
+      - 'tests/test_forward_engine.py'
+      - '.github/workflows/forward-engine-ci.yml'
+      - '.github/workflows/live-forward-telegram.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      - name: Run forward engine invariant suite
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_forward_engine.py' -v

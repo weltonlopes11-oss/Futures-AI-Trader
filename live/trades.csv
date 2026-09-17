@@ -1,0 +1,1 @@
+trade_id,side,signal_time,entry_time,entry_price,entry_atr,stop_price,exit_time,exit_price,exit_reason,net_return_pct,pnl_brl_10x,equity_before_brl,equity_after_brl
