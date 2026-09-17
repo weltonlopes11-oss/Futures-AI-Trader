@@ -132,6 +132,8 @@ jobs:
         run: python run_ichimoku_keltner_1h_stop_diagnostic.py | tee ichimoku-keltner-1h-stop-diagnostic.txt
       - name: Benchmark Kijun and causal swing invalidation with 2ATR emergency stop
         run: python run_ichimoku_keltner_1h_structural_stop_benchmark.py | tee ichimoku-keltner-1h-structural-stop.txt
+      - name: Benchmark SMA25 invalidation with 2ATR emergency stop
+        run: python run_ichimoku_keltner_1h_ma25_stop_benchmark.py | tee ichimoku-keltner-1h-ma25-stop.txt
       - name: Preserve 1h benchmarks
         if: always()
         uses: actions/upload-artifact@v4
@@ -142,9 +144,11 @@ jobs:
             artifacts/ichimoku-keltner-1h-stop/
             artifacts/ichimoku-keltner-1h-stop-diagnostic/
             artifacts/ichimoku-keltner-1h-structural-stop/
+            artifacts/ichimoku-keltner-1h-ma25-stop/
             ichimoku-keltner-1h.txt
             ichimoku-keltner-1h-stop.txt
             ichimoku-keltner-1h-stop-diagnostic.txt
             ichimoku-keltner-1h-structural-stop.txt
+            ichimoku-keltner-1h-ma25-stop.txt
           if-no-files-found: error
           retention-days: 30
