@@ -1,0 +1,44 @@
+name: Regime Discovery 2025 Validate 2026
+
+on:
+  pull_request:
+    branches: [experiment/regime-4h-ema50]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+
+jobs:
+  regime-discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Discover 2025 regimes and validate 2026
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_regime_discovery_2025_validate_2026.py | tee regime-discovery.txt
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-discovery-${{ github.run_number }}
+          path: |
+            artifacts/regime-discovery/
+            regime-discovery.txt
+          if-no-files-found: error
+          retention-days: 30
