@@ -1,0 +1,69 @@
+{
+  "experiment_id": "full-cloud-breakout-ethusdt-1h-aug-2026",
+  "status": "separate_experiment_not_promoted",
+  "evaluation_utc": {
+    "start": "2026-08-01T00:00:00Z",
+    "end_exclusive": "2026-09-01T00:00:00Z"
+  },
+  "market_data": {
+    "source": "Binance USD-M Futures",
+    "symbol": "ETHUSDT",
+    "interval": "1h",
+    "warmup_start": "2026-06-20T00:00:00Z",
+    "last_bar": "2026-08-31T23:00:00Z",
+    "bars": 1752
+  },
+  "entry_change_only": {
+    "long": "completed close crosses from not-above to above max(plotted Leading Span A, plotted Leading Span B); execute next bar open",
+    "short": "completed close crosses from not-below to below min(plotted Leading Span A, plotted Leading Span B); execute next bar open"
+  },
+  "unchanged_rules": {
+    "ichimoku": "9/26/52 displacement 26, chart-visible plotted spans",
+    "target": "Keltner EMA20 + ATR20 Wilder RMA x3, executable threshold shifted 1 bar",
+    "stop": "fixed 2ATR20 from the completed signal candle",
+    "same_bar_priority": "stop wins",
+    "gap_stop": "fill at bar open when open gaps beyond stop",
+    "positioning": "one position at a time",
+    "cost": "4 bps fee + 1 bp slippage per side = 0.10% round trip",
+    "capital_model": "R$500 initial, fixed 10x current equity, reinvest trade by trade"
+  },
+  "result": {
+    "trades": 24,
+    "wins": 11,
+    "win_rate_pct": 45.83333333333333,
+    "simple_net_pct": -5.166568269535753,
+    "compounded_pct": -5.250904419680058,
+    "profit_factor": 0.6765018946453972,
+    "expectancy_pct": -0.21527367789732302,
+    "max_drawdown_pct": -7.655808594715717,
+    "avg_hours_held": 12.0,
+    "median_hours_held": 3.5,
+    "long_trades": 10,
+    "short_trades": 14,
+    "stops": 12,
+    "targets": 11,
+    "eval_end_mtm": 1,
+    "leveraged_10x": {
+      "initial_brl": 500.0,
+      "final_brl": 237.26913122017422,
+      "return_pct": -52.54617375596516,
+      "max_equity_brl": 511.172665382476,
+      "min_equity_brl": 211.03052038815753,
+      "max_drawdown_pct": -58.71639180270767
+    }
+  },
+  "baseline_validation_same_data": {
+    "description": "Frozen Span-A/Span-B entry logic recalculated on the same Binance bars to validate the experimental calculation path.",
+    "trades": 22,
+    "win_rate_pct": 50.0,
+    "simple_net_pct": 2.0811902048603286,
+    "compounded_pct": 1.8255522480366437,
+    "profit_factor": 1.1450771622649714,
+    "long_trades": 12,
+    "short_trades": 10,
+    "stops": 11,
+    "targets": 10,
+    "eval_end_mtm": 1,
+    "note": "Matches the previously frozen August result to floating-point tolerance; live/forward files were not modified."
+  }
+}
