@@ -1,0 +1,38 @@
+name: Binance Direct 10pct 15x Validation
+
+on:
+  pull_request:
+    branches: [experiment/continuous-equity-risk-sizing-2024-2026]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  binance-direct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run direct Binance USD-M validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_binance_direct_10pct_15x_2024_2026.py | tee binance-direct-10pct-15x.txt
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-direct-10pct-15x-${{ github.run_number }}
+          path: |
+            artifacts/binance-direct-10pct-15x-2024-2026/
+            binance-direct-10pct-15x.txt
+          if-no-files-found: error
+          retention-days: 30
