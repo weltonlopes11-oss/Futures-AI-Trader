@@ -1,0 +1,46 @@
+name: 2025 OOS 4H ATR Price Validation
+
+on:
+  pull_request:
+    branches: [experiment/regime-4h-atr-price-robustness]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  BACKTEST_SYMBOL: ETHUSDT
+  BACKTEST_EVAL_START_UTC: "2025-01-01T00:00:00Z"
+  BACKTEST_EVAL_END_UTC: "2026-01-01T00:00:00Z"
+  BACKTEST_FEE_BPS_PER_SIDE: "4"
+  BACKTEST_SLIPPAGE_BPS_PER_SIDE: "1"
+
+jobs:
+  oos-2025:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run 2025 OOS validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_regime_4h_atr_price_oos_2025.py | tee regime-4h-atr-price-oos-2025.txt
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-4h-atr-price-oos-2025-${{ github.run_number }}
+          path: |
+            artifacts/regime-4h-atr-price-oos-2025/
+            regime-4h-atr-price-oos-2025.txt
+          if-no-files-found: error
+          retention-days: 30
