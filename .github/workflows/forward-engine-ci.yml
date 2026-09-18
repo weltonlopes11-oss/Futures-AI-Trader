@@ -4,8 +4,10 @@ on:
   pull_request:
     paths:
       - 'live/**'
+      - 'strategy/market_regime_gate.py'
+      - 'collector/api/klines.js'
       - 'backtest/ichimoku_keltner_1h.py'
-      - 'research_protocol/frozen_ichimoku_keltner_1h_10x_v1_2026-09-17.json'
+      - 'research_protocol/official_regime_risk_v1_2026-09-18.json'
       - 'tests/test_forward_engine.py'
       - '.github/workflows/forward-engine-ci.yml'
       - '.github/workflows/live-forward-telegram.yml'
@@ -32,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas numpy
 
-      - name: Run forward engine invariant suite
+      - name: Run official forward engine invariant suite
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_forward_engine.py' -v
