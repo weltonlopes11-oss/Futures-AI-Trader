@@ -1,0 +1,38 @@
+name: Continuous Equity Risk Sizing 2024-2026
+
+on:
+  pull_request:
+    branches: [experiment/regime-discovery-2025-validate-2026]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  continuous-equity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run continuous equity sizing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python run_continuous_equity_risk_sizing_2024_2026.py | tee continuous-equity-risk-sizing.txt
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuous-equity-risk-sizing-${{ github.run_number }}
+          path: |
+            artifacts/continuous-equity-risk-sizing-2024-2026/
+            continuous-equity-risk-sizing.txt
+          if-no-files-found: error
+          retention-days: 30
