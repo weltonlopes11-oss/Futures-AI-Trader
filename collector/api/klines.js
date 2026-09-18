@@ -5,9 +5,9 @@ const BINANCE_FUTURES_ENDPOINTS = [
 ];
 
 const ALLOWED_SYMBOLS = new Set(['ETHUSDT']);
-const ALLOWED_INTERVALS = new Set(['1h']);
-const DEFAULT_LIMIT = 200;
-const MAX_LIMIT = 500;
+const ALLOWED_INTERVALS = new Set(['1h', '4h']);
+const DEFAULT_LIMIT = 500;
+const MAX_LIMIT = 1500;
 const UPSTREAM_TIMEOUT_MS = 8000;
 
 function validateKlines(payload) {
@@ -24,11 +24,12 @@ function validateKlines(payload) {
   );
 }
 
-async function fetchFromBinance(endpoint, symbol, interval, limit) {
+async function fetchFromBinance(endpoint, symbol, interval, limit, endTime) {
   const url = new URL(endpoint);
   url.searchParams.set('symbol', symbol);
   url.searchParams.set('interval', interval);
   url.searchParams.set('limit', String(limit));
+  if (endTime) url.searchParams.set('endTime', String(endTime));
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -76,9 +77,11 @@ export default async function handler(req, res) {
   const symbol = String(req.query.symbol || 'ETHUSDT').toUpperCase();
   const interval = String(req.query.interval || '1h');
   const parsedLimit = Number.parseInt(String(req.query.limit || DEFAULT_LIMIT), 10);
+  const parsedEndTime = Number.parseInt(String(req.query.endTime || ''), 10);
   const limit = Number.isFinite(parsedLimit)
     ? Math.min(Math.max(parsedLimit, 1), MAX_LIMIT)
     : DEFAULT_LIMIT;
+  const endTime = Number.isFinite(parsedEndTime) && parsedEndTime > 0 ? parsedEndTime : null;
 
   if (!ALLOWED_SYMBOLS.has(symbol) || !ALLOWED_INTERVALS.has(interval)) {
     return res.status(400).json({ error: 'unsupported_market_request' });
@@ -87,7 +90,7 @@ export default async function handler(req, res) {
   const failures = [];
   for (const endpoint of BINANCE_FUTURES_ENDPOINTS) {
     try {
-      const klines = await fetchFromBinance(endpoint, symbol, interval, limit);
+      const klines = await fetchFromBinance(endpoint, symbol, interval, limit, endTime);
       res.setHeader('Cache-Control', 'no-store, max-age=0');
       res.setHeader('X-Market-Source', 'binance-usdm-futures');
       return res.status(200).json(klines);
