@@ -2,7 +2,7 @@
   "equity_brl": 500.0,
   "peak_equity_brl": 500.0,
   "max_drawdown_pct": 0.0,
-  "last_processed_open_ms": 1789725600000,
+  "last_processed_open_ms": 1789736400000,
   "pending_side": null,
   "pending_signal_time": null,
   "pending_signal_open_ms": null,
@@ -13,10 +13,12 @@
   "finalized": false,
   "ledger_outbox": [],
   "notification_outbox": {},
-  "sent_notification_ids": [],
+  "sent_notification_ids": [
+    "heartbeat-2026-09-18"
+  ],
   "ops_status": "OK",
   "last_error_fingerprint": null,
-  "last_success_utc": "2026-09-18T11:04:47.998952+00:00",
-  "last_heartbeat_date": null,
+  "last_success_utc": "2026-09-18T14:56:17.619277+00:00",
+  "last_heartbeat_date": "2026-09-18",
   "kill_switch_active": false
 }
