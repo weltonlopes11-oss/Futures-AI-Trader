@@ -1,0 +1,31 @@
+{
+  "experiment_id": "obv-signal-quality-ethusdt-1h-v1",
+  "status": "separate_experiment_not_promoted",
+  "official_strategy_modified": false,
+  "candidate_selected_from_development_window": {
+    "filter": "OBV20 direction",
+    "rule": "LONG only when OBV(t) > OBV(t-20); SHORT only when OBV(t) < OBV(t-20)",
+    "development_window": "2026-06-01 through 2026-08-31 UTC"
+  },
+  "development_result_jun_aug": {
+    "official": {"trades":53,"win_rate_pct":50.9434,"profit_factor":1.4424,"final_brl_10x_from_2000":3929.66,"return_pct":96.48,"max_drawdown_pct":-59.65},
+    "obv20": {"trades":38,"win_rate_pct":57.8947,"profit_factor":1.6782,"final_brl_10x_from_2000":4970.69,"return_pct":148.53,"max_drawdown_pct":-42.52}
+  },
+  "out_of_sample_jan_may_2026": {
+    "official": {"trades":82,"win_rate_pct":42.6829,"simple_net_pct":-24.0257,"profit_factor":0.7231},
+    "obv20": {"trades":74,"win_rate_pct":45.9459,"simple_net_pct":-22.7150,"profit_factor":0.7002},
+    "interpretation": "OBV20 did not establish positive edge out of sample."
+  },
+  "sensitivity_jun_aug": {
+    "obv5": {"trades":47,"return_pct_10x":-51.86,"max_drawdown_pct":-80.78},
+    "obv10": {"trades":41,"return_pct_10x":-19.01,"max_drawdown_pct":-77.54},
+    "obv20": {"trades":38,"return_pct_10x":148.53,"max_drawdown_pct":-42.52},
+    "obv30": {"trades":43,"return_pct_10x":23.15,"max_drawdown_pct":-60.70},
+    "obv50": {"trades":36,"return_pct_10x":-33.48,"max_drawdown_pct":-50.91}
+  },
+  "critical_drawdown_observation": {
+    "official_jul07_to_jul14": "five consecutive stop losses in the critical sequence",
+    "obv20": "filtered both losing SHORT signals on Jul 7, but still admitted several losing LONG signals in Jul 13-14"
+  },
+  "conclusion": "OBV20 is interesting in the development sample but is parameter-sensitive and did not validate out of sample. Do not promote to official strategy."
+}
