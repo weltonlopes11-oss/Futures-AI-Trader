@@ -21,8 +21,7 @@ INITIAL_EQUITY_BRL = 2000.0
 RISK_FRACTION = 0.10
 MAX_LEVERAGE = 15.0
 
-BINANCE_FUTURES_BASE = "https://fapi.binance.com"
-KLINE_PATH = "/fapi/v1/klines"
+BINANCE_DATA_DIR = Path("data/binance_direct")
 
 COLUMNS = [
     "timestamp", "open", "high", "low", "close", "volume", "close_time",
@@ -30,71 +29,23 @@ COLUMNS = [
 ]
 
 
-def fetch_binance_um_klines(
-    symbol: str,
-    interval: str,
-    start: datetime,
-    end: datetime,
-    session: requests.Session,
-) -> pd.DataFrame:
-    start_ms = int(start.timestamp() * 1000)
-    end_ms = int(end.timestamp() * 1000)
-    rows: list[list] = []
-    cursor = start_ms
-
-    while cursor < end_ms:
-        response = session.get(
-            BINANCE_FUTURES_BASE + KLINE_PATH,
-            params={
-                "symbol": symbol,
-                "interval": interval,
-                "startTime": cursor,
-                "endTime": end_ms - 1,
-                "limit": 1500,
-            },
-            timeout=60,
-        )
-        response.raise_for_status()
-        batch = response.json()
-        if not batch:
-            break
-
-        rows.extend(batch)
-        next_cursor = int(batch[-1][0]) + 1
-        if next_cursor <= cursor:
-            raise RuntimeError("Binance pagination cursor did not advance")
-        cursor = next_cursor
-
-        if len(batch) < 1500:
-            break
-        time.sleep(0.08)
-
-    if not rows:
-        raise RuntimeError(f"No Binance USD-M klines for {symbol} {interval}")
-
-    frame = pd.DataFrame(rows, columns=COLUMNS)
+def load_binance_connector_csvs(pattern: str) -> pd.DataFrame:
+    files = sorted(BINANCE_DATA_DIR.glob(pattern))
+    if not files:
+        raise RuntimeError(f"No Binance connector files matched {pattern}")
+    frames = [pd.read_csv(path) for path in files]
+    frame = pd.concat(frames, ignore_index=True)
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], unit="ms", utc=True).dt.tz_localize(None)
     frame["close_time"] = pd.to_datetime(frame["close_time"], unit="ms", utc=True).dt.tz_localize(None)
-
-    for col in [
-        "open", "high", "low", "close", "volume", "quote_volume",
-        "taker_buy_base", "taker_buy_quote",
-    ]:
+    for col in ["open", "high", "low", "close", "volume", "quote_volume", "taker_buy_base", "taker_buy_quote"]:
         frame[col] = pd.to_numeric(frame[col], errors="coerce")
-
     frame["trades"] = pd.to_numeric(frame["trades"], errors="coerce")
-    frame = (
+    return (
         frame.dropna(subset=["timestamp", "open", "high", "low", "close"])
         .drop_duplicates("timestamp")
         .sort_values("timestamp")
         .reset_index(drop=True)
     )
-
-    start_naive = start.astimezone(timezone.utc).replace(tzinfo=None)
-    end_naive = end.astimezone(timezone.utc).replace(tzinfo=None)
-    frame = frame[(frame["timestamp"] >= start_naive) & (frame["timestamp"] < end_naive)].reset_index(drop=True)
-
-    return frame
 
 
 def apply_continuous_equity_sizing(trades: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -166,11 +117,8 @@ def main() -> None:
 
     eval_start = datetime(2024, 1, 1, tzinfo=timezone.utc)
     eval_end = datetime(2026, 9, 1, tzinfo=timezone.utc)
-    warmup = eval_start - timedelta(days=120)
-
-    with requests.Session() as session:
-        h1 = fetch_binance_um_klines("ETHUSDT", "1h", warmup, eval_end, session)
-        h4 = fetch_binance_um_klines("ETHUSDT", "4h", warmup - timedelta(days=15), eval_end, session)
+    h1 = load_binance_connector_csvs("ETHUSDT_1h_*.csv")
+    h4 = load_binance_connector_csvs("ETHUSDT_4h_*.csv")
 
     trades, counts = run_featured_regime_window(
         h1,
@@ -190,7 +138,7 @@ def main() -> None:
         "source": {
             "venue": "Binance USD-M Futures",
             "symbol": "ETHUSDT",
-            "endpoint": "fapi.binance.com/fapi/v1/klines",
+            "endpoint": "Binance connected USD-M Futures kline source",
             "intervals": ["1h", "4h"],
             "direct_api": True,
             "csv_source": False,
