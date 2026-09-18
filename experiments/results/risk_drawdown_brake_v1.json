@@ -1,0 +1,37 @@
+{
+  "experiment_id": "risk-drawdown-brake-v1",
+  "status": "separate_experiment_not_promoted",
+  "official_strategy_modified": false,
+  "purpose": "Reduce exposure temporarily after losing trades without changing entries, exits, stops, targets or signal generation.",
+  "base_model": {"initial_brl":2000,"normal_leverage":10,"capital_reinvested_trade_by_trade":true},
+  "candidate_rules": {
+    "fast_5x": "10x normally; after any losing trade, next trade uses 5x; any winning trade resets next trade to 10x.",
+    "slow_A": "10x normally; after a loss go to 5x; after first subsequent win go to 7.5x; after second subsequent win return to 10x; a new loss returns to 5x.",
+    "slow_B": "10x normally; first loss -> 5x; second consecutive loss -> 2.5x; recovery is one tier per subsequent win: 2.5 -> 5 -> 7.5 -> 10."
+  },
+  "jun_aug_2026": {
+    "official_10x": {"final_brl":3929.66,"return_pct":96.48,"max_drawdown_pct":-59.65},
+    "fast_5x": {"final_brl":4637.72,"return_pct":131.89,"max_drawdown_pct":-46.68,"average_leverage":7.55},
+    "slow_A": {"final_brl":3711.66,"return_pct":85.58,"max_drawdown_pct":-41.99,"average_leverage":6.93},
+    "slow_B": {"final_brl":3114.49,"return_pct":55.72,"max_drawdown_pct":-42.71,"average_leverage":5.85}
+  },
+  "fast_one_loss_sensitivity_jun_aug": {
+    "next_trade_7_5x": {"return_pct":118.56,"max_drawdown_pct":-51.33},
+    "next_trade_6x": {"return_pct":127.75,"max_drawdown_pct":-47.48},
+    "next_trade_5x": {"return_pct":131.89,"max_drawdown_pct":-46.68},
+    "next_trade_4x": {"return_pct":134.33,"max_drawdown_pct":-45.99},
+    "next_trade_2_5x": {"return_pct":134.68,"max_drawdown_pct":-45.20}
+  },
+  "jan_may_2026_stress_check": {
+    "official_10x": {"final_brl":24.36,"return_pct":-98.78,"max_drawdown_pct":-98.85},
+    "fast_5x": {"final_brl":98.50,"return_pct":-95.08,"max_drawdown_pct":-96.27},
+    "slow_A": {"final_brl":116.84,"return_pct":-94.16,"max_drawdown_pct":-94.72},
+    "slow_B": {"final_brl":229.62,"return_pct":-88.52,"max_drawdown_pct":-90.82}
+  },
+  "interpretation": [
+    "Loss-streak scaling materially improves the June-August drawdown without changing the strategy signals.",
+    "The simple one-loss brake is robust across a broad reduced-leverage neighborhood (2.5x through 7.5x) in June-August, so 5x is not a single magic value.",
+    "No loss-streak brake rescues January-May because the underlying strategy expectancy is persistently adverse; this supports a later separate market-regime gate.",
+    "Do not promote any candidate until period/regime analysis and additional out-of-sample validation are complete."
+  ]
+}
