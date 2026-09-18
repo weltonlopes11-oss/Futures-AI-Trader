@@ -1,17 +1,9 @@
 {
-  "status": "OK",
-  "checked_at_utc": "2026-09-18T18:19:26.862406+00:00",
-  "last_success_utc": "2026-09-18T18:19:26.862406+00:00",
-  "symbol": "ETHUSDT",
-  "interval": "1h",
-  "protocol_sha256": "359b92e6024c0b3350775e53281c783cbcbaf68e030f3fc1139e7df580fce203",
-  "latest_market_open_ms": 1789750800000,
-  "equity_brl": 500.0,
+  "status": "PENDING_ACTIVATION",
+  "strategy": "official_regime_risk_v1",
+  "equity_brl": 2000.0,
   "trade_count": 0,
   "position": null,
   "pending_side": null,
-  "kill_switch_active": false,
-  "notification_backlog": 0,
-  "ledger_backlog": 0,
-  "error": null
+  "kill_switch_active": false
 }
