@@ -1,0 +1,26 @@
+{
+  "analysis_id": "monthly-period-analysis-jan-aug-2026-v1",
+  "status": "research_only_official_strategy_unchanged",
+  "market": "Binance USD-M Futures ETHUSDT 1h",
+  "months": {
+    "2026-01":{"trades":13,"win_rate_pct":46.15,"simple_net_pct":-2.75,"profit_factor":0.786,"max_loss_streak":2,"base_10x_return_pct":-41.01,"base_10x_max_dd_pct":-58.68,"fast5_return_pct":-39.19,"fast5_max_dd_pct":-51.11,"eth_return_pct":-17.51,"avg_atr_pct":0.782,"avg_adx14":32.67},
+    "2026-02":{"trades":14,"win_rate_pct":14.29,"simple_net_pct":-22.77,"profit_factor":0.153,"max_loss_streak":7,"base_10x_return_pct":-94.66,"base_10x_max_dd_pct":-95.09,"fast5_return_pct":-78.66,"fast5_max_dd_pct":-79.40,"eth_return_pct":-19.87,"avg_atr_pct":1.411,"avg_adx14":28.93},
+    "2026-03":{"trades":18,"win_rate_pct":44.44,"simple_net_pct":-1.52,"profit_factor":0.920,"max_loss_streak":4,"base_10x_return_pct":-51.14,"base_10x_max_dd_pct":-70.25,"fast5_return_pct":-59.77,"fast5_max_dd_pct":-67.02,"eth_return_pct":7.18,"avg_atr_pct":1.065,"avg_adx14":26.61},
+    "2026-04":{"trades":22,"win_rate_pct":59.09,"simple_net_pct":5.39,"profit_factor":1.358,"max_loss_streak":2,"base_10x_return_pct":22.00,"base_10x_max_dd_pct":-45.42,"fast5_return_pct":-12.95,"fast5_max_dd_pct":-48.28,"eth_return_pct":7.22,"avg_atr_pct":0.778,"avg_adx14":27.12},
+    "2026-05":{"trades":15,"win_rate_pct":33.33,"simple_net_pct":-4.59,"profit_factor":0.653,"max_loss_streak":8,"base_10x_return_pct":-47.02,"base_10x_max_dd_pct":-68.26,"fast5_return_pct":-5.43,"fast5_max_dd_pct":-45.32,"eth_return_pct":-11.09,"avg_atr_pct":0.628,"avg_adx14":26.23},
+    "2026-06":{"trades":15,"win_rate_pct":53.33,"simple_net_pct":6.61,"profit_factor":1.677,"max_loss_streak":2,"base_10x_return_pct":46.25,"base_10x_max_dd_pct":-50.91,"fast5_return_pct":38.65,"fast5_max_dd_pct":-38.54,"eth_return_pct":-21.67,"avg_atr_pct":1.007,"avg_adx14":29.93},
+    "2026-07":{"trades":17,"win_rate_pct":41.18,"simple_net_pct":1.85,"profit_factor":1.136,"max_loss_streak":6,"base_10x_return_pct":-13.60,"base_10x_max_dd_pct":-59.65,"fast5_return_pct":3.44,"fast5_max_dd_pct":-41.79,"eth_return_pct":18.47,"avg_atr_pct":0.720,"avg_adx14":29.35},
+    "2026-08":{"trades":22,"win_rate_pct":50.00,"simple_net_pct":2.08,"profit_factor":1.145,"max_loss_streak":3,"base_10x_return_pct":-5.67,"base_10x_max_dd_pct":-56.83,"fast5_return_pct":-8.76,"fast5_max_dd_pct":-46.68,"eth_return_pct":32.49,"avg_atr_pct":0.664,"avg_adx14":25.53}
+  },
+  "preliminary_periods": {
+    "jan_mar":"negative/weak edge; February is severe failure month",
+    "april":"positive isolated month",
+    "may":"negative with eight-loss streak",
+    "jun_aug":"positive unlevered edge in all three months, but 10x path risk remains severe in July/August"
+  },
+  "notes":[
+    "Monthly 10x figures reset capital to BRL 2000 at each month start for diagnostic comparability; they are not additive.",
+    "Fast5 means 10x normally, next trade 5x after any losing trade, then reset to 10x after a winning trade.",
+    "Do not infer a final market-regime gate from monthly averages alone."
+  ]
+}
