@@ -2,7 +2,7 @@
   "equity_brl": 2000.0,
   "peak_equity_brl": 2000.0,
   "max_drawdown_pct": 0.0,
-  "last_processed_open_ms": 0,
+  "last_processed_open_ms": 1789761600000,
   "pending_side": null,
   "pending_signal_time": null,
   "pending_signal_open_ms": null,
@@ -10,15 +10,18 @@
   "pending_regime_key": null,
   "position": null,
   "trade_count": 0,
-  "initialized": false,
+  "initialized": true,
   "ledger_outbox": [],
   "notification_outbox": {},
   "sent_notification_ids": [
-    "error-a1ea69bc2b84fe85"
+    "error-a1ea69bc2b84fe85",
+    "official-regime-risk-v1-activation",
+    "recovered-2026-09-18T21:51:49.029461+00:00",
+    "heartbeat-2026-09-18"
   ],
-  "ops_status": "ERROR",
-  "last_error_fingerprint": "a1ea69bc2b84fe85",
-  "last_success_utc": null,
-  "last_heartbeat_date": null,
+  "ops_status": "OK",
+  "last_error_fingerprint": null,
+  "last_success_utc": "2026-09-18T21:51:49.029461+00:00",
+  "last_heartbeat_date": "2026-09-18",
   "kill_switch_active": false
 }

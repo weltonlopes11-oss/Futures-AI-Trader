@@ -1,15 +1,15 @@
 {
-  "status": "ERROR",
+  "status": "OK",
   "strategy": "official_regime_risk_v1",
-  "checked_at_utc": "2026-09-18T21:35:58.812746+00:00",
-  "last_success_utc": null,
+  "checked_at_utc": "2026-09-18T21:51:49.029461+00:00",
+  "last_success_utc": "2026-09-18T21:51:49.029461+00:00",
   "symbol": "ETHUSDT",
   "protocol_sha256": "4f1592c7ad5a1dc669d15d5f9618bf43f2a6d14f3a84275e3e3c8be879575a46",
-  "latest_market_open_ms": null,
+  "latest_market_open_ms": 1789761600000,
   "equity_brl": 2000.0,
   "trade_count": 0,
   "position": null,
   "pending_side": null,
   "kill_switch_active": false,
-  "error": "HTTPError: HTTP Error 400: Bad Request"
+  "error": null
 }
