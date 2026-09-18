@@ -12,12 +12,19 @@ class GateState(str, Enum):
     OFF = "OFF"
 
 
-FAVORABLE_REGIMES_2025 = frozenset(
+DISCOVERED_REGIMES_2025 = frozenset(
     {
         "LONG|HIGH|CHOP",
         "LONG|LOW|CHOP",
         "LONG|LOW|MIXED",
         "LONG|NORMAL|MIXED",
+        "SHORT|NORMAL|MIXED",
+    }
+)
+
+ROBUST_REGIMES_2025_2026 = frozenset(
+    {
+        "LONG|LOW|CHOP",
         "SHORT|NORMAL|MIXED",
     }
 )
@@ -70,15 +77,15 @@ def decide_regime(snapshot: RegimeSnapshot) -> RegimeDecision:
             reason=f"4H regime {snapshot.regime_4h} does not authorize {snapshot.side}",
         )
 
-    if snapshot.regime_key not in FAVORABLE_REGIMES_2025:
+    if snapshot.regime_key not in ROBUST_REGIMES_2025_2026:
         return RegimeDecision(
             state=GateState.OFF,
             regime_key=snapshot.regime_key,
-            reason="Regime was not in the favorable set discovered on 2025",
+            reason="Regime is outside the conservative set confirmed across 2025 and 2026",
         )
 
     return RegimeDecision(
         state=GateState.ON,
         regime_key=snapshot.regime_key,
-        reason="4H direction and frozen favorable regime authorize the trade",
+        reason="4H direction and conservative cross-period regime authorize the trade",
     )
