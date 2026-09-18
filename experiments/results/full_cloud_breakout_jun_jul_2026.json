@@ -1,0 +1,51 @@
+{
+  "experiment_id": "full-cloud-breakout-ethusdt-1h-jun-jul-2026",
+  "status": "separate_experiment_not_promoted",
+  "evaluation_utc": {"start":"2026-06-01T00:00:00Z","end_exclusive":"2026-08-01T00:00:00Z"},
+  "entry_rule": {
+    "long": "completed close crosses above max(plotted Leading Span A, plotted Leading Span B); next bar open",
+    "short": "completed close crosses below min(plotted Leading Span A, plotted Leading Span B); next bar open"
+  },
+  "unchanged": "Keltner EMA20/ATR20 x3 target; fixed 2ATR stop; stop priority; gap-stop fill; one position; 0.10% round-trip cost",
+  "continuous_june_july": {
+    "trades": 37,
+    "wins": 13,
+    "win_rate_pct": 35.13513513513514,
+    "simple_net_pct": -13.825747907401587,
+    "compounded_pct": -13.364710710009398,
+    "profit_factor": 0.5966637107071417,
+    "expectancy_pct": -0.37366886236220503,
+    "max_drawdown_pct": -17.10256783660751,
+    "avg_hours_held": 13.81081081081081,
+    "median_hours_held": 6.0,
+    "long_trades": 19,
+    "short_trades": 18,
+    "stops": 21,
+    "targets": 16,
+    "eval_end_mtm": 0,
+    "leveraged_10x": {
+      "initial_brl": 500.0,
+      "final_brl": 74.30869457886638,
+      "return_pct": -85.13826108422673,
+      "max_equity_brl": 573.8031806846261,
+      "min_equity_brl": 63.834719044512546,
+      "max_drawdown_pct": -88.87515420037427
+    }
+  },
+  "calendar_month_diagnostics": {
+    "june": {"trades":18,"win_rate_pct":38.88888888888889,"simple_net_pct":-7.9922353484025965,"profit_factor":0.5322088503783684},
+    "july": {"trades":20,"win_rate_pct":35.0,"simple_net_pct":-5.41065947307,"profit_factor":0.685403491913925},
+    "note": "Monthly diagnostics are independently cut at month-end and therefore are not additive to the continuous Jun-Jul backtest because an open June position is MTM-closed in the June-only diagnostic."
+  },
+  "reference_frozen_baseline_june_july": {
+    "trades": 31,
+    "win_rate_pct": 51.612903,
+    "simple_net_pct": 13.603836371710232,
+    "compounded_pct": 13.791439546028483,
+    "profit_factor": 1.6444884477095163,
+    "expectancy_pct": 0.43883343134549135,
+    "max_drawdown_pct": -8.302098077680487,
+    "long_trades": 16,
+    "short_trades": 15
+  }
+}
