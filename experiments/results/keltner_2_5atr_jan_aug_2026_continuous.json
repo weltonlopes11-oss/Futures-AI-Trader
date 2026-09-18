@@ -1,0 +1,35 @@
+{
+  "experiment_id": "keltner-target-2.5atr-jan-aug-2026-continuous",
+  "status": "separate_experiment_not_promoted",
+  "official_strategy_modified": false,
+  "period": "2026-01-01 through 2026-08-31 UTC",
+  "method": "continuous trade-by-trade equity compounding; no monthly capital reset",
+  "capital_model": {"initial_brl":2000,"leverage":10,"reinvest_trade_by_trade":true},
+  "candidate_change_only": "Keltner target EMA20 +/- 2.5 ATR20 instead of +/- 3 ATR20; fixed protective stop remains 2 ATR",
+  "official_3atr_reference": {
+    "trades":134,"wins":62,"win_rate_pct":46.2687,"simple_net_pct":-7.3146,"profit_factor":0.9396,
+    "expectancy_pct":-0.05459,"final_brl":53.49,"return_10x_pct":-97.3254,"max_drawdown_10x_pct":-99.0888,
+    "max_loss_streak":8,"stops":66,"targets":67
+  },
+  "candidate_2_5atr": {
+    "trades":152,"wins":76,"win_rate_pct":50.0,"simple_net_pct":-15.5661,"profit_factor":0.8657,
+    "expectancy_pct":-0.10241,"final_brl":41.36,"return_10x_pct":-97.9320,"max_drawdown_10x_pct":-99.5248,
+    "max_loss_streak":8,"stops":63,"targets":88
+  },
+  "candidate_continuous_equity_by_exit_month": {
+    "2026-01":{"trades":14,"simple_net_pct":-5.2467,"start_brl":2000.00,"end_brl":971.45},
+    "2026-02":{"trades":13,"simple_net_pct":-24.1593,"start_brl":971.45,"end_brl":45.88},
+    "2026-03":{"trades":21,"simple_net_pct":-4.5141,"start_brl":45.88,"end_brl":19.14},
+    "2026-04":{"trades":27,"simple_net_pct":6.6919,"start_brl":19.14,"end_brl":28.09},
+    "2026-05":{"trades":17,"simple_net_pct":-3.9575,"start_brl":28.09,"end_brl":16.32},
+    "2026-06":{"trades":16,"simple_net_pct":2.2489,"start_brl":16.32,"end_brl":16.69},
+    "2026-07":{"trades":21,"simple_net_pct":9.3188,"start_brl":16.69,"end_brl":33.94},
+    "2026-08":{"trades":23,"simple_net_pct":4.0519,"start_brl":33.94,"end_brl":41.36}
+  },
+  "notes": [
+    "Month buckets are based on trade exit month; positions/signals may cross month boundaries.",
+    "This continuous run is methodologically different from diagnostic monthly-reset runs.",
+    "The 2.5 ATR candidate improves June-August behavior but is worse than the official 3 ATR strategy over the full January-August continuous sample.",
+    "The catastrophic 10x path is driven by adverse January-May regime; this reinforces the need for a separate regime gate before considering target changes."
+  ]
+}
