@@ -1,0 +1,42 @@
+{
+  "protocol_id": "official_regime_risk_v1_2026-09-18",
+  "status": "official",
+  "symbol": "ETHUSDT",
+  "market": "Binance USD-M Futures",
+  "signal_timeframe": "1h",
+  "direction_timeframe": "4h",
+  "entry_rule": {
+    "long": "completed 1H close crosses above chart-visible Ichimoku Leading Span A",
+    "short": "completed 1H close crosses below chart-visible Ichimoku Leading Span B",
+    "execution": "next 1H open"
+  },
+  "regime_gate": {
+    "4h": "EMA50 direction and slope; LONG bullish only, SHORT bearish only",
+    "volatility": "ATR20/close versus trailing 90d 33rd/67th percentiles",
+    "efficiency": "ER20; CHOP <0.15, MIXED 0.15-<0.30, EFFICIENT >=0.30",
+    "allowed": [
+      "LONG|LOW|CHOP",
+      "SHORT|NORMAL|MIXED"
+    ]
+  },
+  "exit": {
+    "target": "Keltner EMA20 / ATR20 x3 executable band",
+    "stop": "2x ATR20 from completed signal candle",
+    "same_candle_collision": "stop wins",
+    "gap_stop": "candle open"
+  },
+  "costs": {
+    "fee_bps_per_side": 4.0,
+    "slippage_bps_per_side": 1.0
+  },
+  "positioning": {
+    "equity_base": "100% current paper equity",
+    "risk_fraction_at_stop": 0.1,
+    "max_leverage": 15.0,
+    "formula": "min(15, 0.10 / stop_distance_fraction)",
+    "initial_paper_equity_brl": 2000.0
+  },
+  "execution_mode": "telegram_signal_and_paper_tracking_only",
+  "live_orders_enabled": false,
+  "data_source": "real Binance USD-M Futures candles via authenticated collector"
+}
