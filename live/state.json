@@ -2,7 +2,7 @@
   "equity_brl": 500.0,
   "peak_equity_brl": 500.0,
   "max_drawdown_pct": 0.0,
-  "last_processed_open_ms": 1789678800000,
+  "last_processed_open_ms": 1789686000000,
   "pending_side": null,
   "pending_signal_time": null,
   "pending_signal_open_ms": null,
@@ -10,5 +10,13 @@
   "position": null,
   "trade_count": 0,
   "initialized": true,
-  "finalized": false
+  "finalized": false,
+  "ledger_outbox": [],
+  "notification_outbox": {},
+  "sent_notification_ids": [],
+  "ops_status": "OK",
+  "last_error_fingerprint": null,
+  "last_success_utc": "2026-09-18T00:10:29.606601+00:00",
+  "last_heartbeat_date": null,
+  "kill_switch_active": false
 }
