@@ -13,9 +13,11 @@
   "initialized": false,
   "ledger_outbox": [],
   "notification_outbox": {},
-  "sent_notification_ids": [],
-  "ops_status": "OK",
-  "last_error_fingerprint": null,
+  "sent_notification_ids": [
+    "error-a1ea69bc2b84fe85"
+  ],
+  "ops_status": "ERROR",
+  "last_error_fingerprint": "a1ea69bc2b84fe85",
   "last_success_utc": null,
   "last_heartbeat_date": null,
   "kill_switch_active": false
