@@ -1,5 +1,6 @@
 from strategy.market_regime_gate import (
-    FAVORABLE_REGIMES_2025,
+    DISCOVERED_REGIMES_2025,
+    ROBUST_REGIMES_2025_2026,
     GateState,
     RegimeSnapshot,
     decide_regime,
@@ -46,6 +47,20 @@ def test_wrong_4h_direction_is_off():
     assert decide_regime(snap).state == GateState.OFF
 
 
+def test_discovered_but_not_robust_regime_is_off():
+    snap = RegimeSnapshot(
+        side="LONG",
+        regime_4h="BULLISH",
+        atr_price=0.013,
+        atr_price_q33=0.007,
+        atr_price_q67=0.011,
+        er20=0.10,
+    )
+    assert snap.regime_key == "LONG|HIGH|CHOP"
+    assert snap.regime_key in DISCOVERED_REGIMES_2025
+    assert decide_regime(snap).state == GateState.OFF
+
+
 def test_unfavorable_efficiency_is_off():
     snap = RegimeSnapshot(
         side="LONG",
@@ -58,13 +73,10 @@ def test_unfavorable_efficiency_is_off():
     assert decide_regime(snap).state == GateState.OFF
 
 
-def test_frozen_set_is_exact():
-    assert FAVORABLE_REGIMES_2025 == frozenset(
+def test_robust_set_is_exact():
+    assert ROBUST_REGIMES_2025_2026 == frozenset(
         {
-            "LONG|HIGH|CHOP",
             "LONG|LOW|CHOP",
-            "LONG|LOW|MIXED",
-            "LONG|NORMAL|MIXED",
             "SHORT|NORMAL|MIXED",
         }
     )
