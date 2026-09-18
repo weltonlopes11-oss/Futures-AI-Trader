@@ -1,0 +1,21 @@
+{
+  "experiment_id": "keltner-target-2.5atr-jun-aug-2026",
+  "status": "separate_experiment_not_promoted",
+  "official_strategy_modified": false,
+  "interpretation_of_requested_change": "Keltner exit channel multiplier changed from 3.0 ATR to 2.5 ATR. Protective stop remains fixed at 2 ATR.",
+  "period": "2026-06-01 through 2026-08-31 UTC",
+  "capital_model": {"initial_brl":2000,"leverage":10,"reinvest_trade_by_trade":true},
+  "official_3atr": {"trades":53,"win_rate_pct":50.9434,"simple_net_pct":15.6850,"profit_factor":1.4424,"expectancy_pct":0.29594,"final_brl":3929.66,"return_10x_pct":96.48,"max_drawdown_10x_pct":-59.65},
+  "candidate_2_5atr": {"trades":61,"win_rate_pct":59.0164,"simple_net_pct":14.5930,"profit_factor":1.4490,"expectancy_pct":0.23923,"final_brl":4535.85,"return_10x_pct":126.79,"max_drawdown_10x_pct":-55.23},
+  "monthly": {
+    "2026-06":{"official_simple_net_pct":6.6150,"official_pf":1.6766,"candidate_simple_net_pct":0.6802,"candidate_pf":1.0559,"candidate_return_10x_pct":-13.45,"candidate_max_dd_10x_pct":-55.23},
+    "2026-07":{"official_simple_net_pct":1.8514,"official_pf":1.1356,"candidate_simple_net_pct":5.3987,"candidate_pf":1.4856,"candidate_return_10x_pct":37.72,"candidate_max_dd_10x_pct":-26.48},
+    "2026-08":{"official_simple_net_pct":2.0812,"official_pf":1.1451,"candidate_simple_net_pct":4.0519,"candidate_pf":1.3514,"candidate_return_10x_pct":21.85,"candidate_max_dd_10x_pct":-42.42}
+  },
+  "notes": [
+    "Same official Ichimoku entry logic, next-open execution, 2ATR fixed protective stop, one position, stop priority, gap-stop behavior, and 0.1% round-trip costs.",
+    "Keltner threshold remains causally shifted one completed bar.",
+    "Monthly diagnostics reset BRL 2000 each month and are not additive.",
+    "The candidate improves July/August but materially degrades June; do not promote based on the three-month aggregate."
+  ]
+}
