@@ -1,24 +1,22 @@
 {
-  "equity_brl": 500.0,
-  "peak_equity_brl": 500.0,
+  "equity_brl": 2000.0,
+  "peak_equity_brl": 2000.0,
   "max_drawdown_pct": 0.0,
-  "last_processed_open_ms": 1789750800000,
+  "last_processed_open_ms": 0,
   "pending_side": null,
   "pending_signal_time": null,
   "pending_signal_open_ms": null,
   "pending_atr": null,
+  "pending_regime_key": null,
   "position": null,
   "trade_count": 0,
-  "initialized": true,
-  "finalized": false,
+  "initialized": false,
   "ledger_outbox": [],
   "notification_outbox": {},
-  "sent_notification_ids": [
-    "heartbeat-2026-09-18"
-  ],
+  "sent_notification_ids": [],
   "ops_status": "OK",
   "last_error_fingerprint": null,
-  "last_success_utc": "2026-09-18T18:19:26.862406+00:00",
-  "last_heartbeat_date": "2026-09-18",
+  "last_success_utc": null,
+  "last_heartbeat_date": null,
   "kill_switch_active": false
 }
