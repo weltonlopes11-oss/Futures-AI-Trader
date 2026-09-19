@@ -2,7 +2,7 @@
   "equity_brl": 2000.0,
   "peak_equity_brl": 2000.0,
   "max_drawdown_pct": 0.0,
-  "last_processed_open_ms": 1789808400000,
+  "last_processed_open_ms": 1789822800000,
   "pending_side": null,
   "pending_signal_time": null,
   "pending_signal_open_ms": null,
@@ -17,11 +17,12 @@
     "error-a1ea69bc2b84fe85",
     "official-regime-risk-v1-activation",
     "recovered-2026-09-18T21:51:49.029461+00:00",
-    "heartbeat-2026-09-18"
+    "heartbeat-2026-09-18",
+    "heartbeat-2026-09-19"
   ],
   "ops_status": "OK",
   "last_error_fingerprint": null,
-  "last_success_utc": "2026-09-19T10:48:53.183229+00:00",
-  "last_heartbeat_date": "2026-09-18",
+  "last_success_utc": "2026-09-19T14:19:23.940766+00:00",
+  "last_heartbeat_date": "2026-09-19",
   "kill_switch_active": false
 }
